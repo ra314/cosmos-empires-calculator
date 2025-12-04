@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+message Cards {
+  repeated Card cards = 1;
+}
+
+message Card {
+  required string name = 1;
+  required int32 cost = 2;
+  optional string ability = 3;
+  required CardType type = 4;
+  oneof production {
+    int32 production_value = 5;
+    string production_description = 6;
+  }
+  optional int32 roll_value = 7;
+  required int32 deck_quantity = 8;
+  optional string tips = 9;
+}
+
+enum CardType {
+  CT_UNSET = 0;
+  CT_MECH = 1;
+  CT_BIO = 2;
+  CT_SPIRIT = 3;
+}

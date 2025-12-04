@@ -1,0 +1,204 @@
+I want to write a web app to help me track scores for a board game that I like to play. The name of the board game is called Cosmos Empires. The game supports 2-8 players. Each player can hold any number of cards. Each player's score is independent of every other player's score and can be calculated by just looking at the cards that they possess. I've slurped up the information for the possible cards in the game and put them into a JSON (textproto). I have also provided the schema for the proto (protocol buffers) structure. Help me right up a good prompt that I can provide to Gemini so that I can produce something that I can copy paste into github and deploy super easily. From reading the cards if there are any ambiguities ask me questions. Also if you have any questions about the structure of the UI let me know as well.
+
+DO NOT start coding up the application, I just want to work on developing the prompt.
+
+- Score is equivalent to total production.
+- The UI will need to specify which roll value each chosen for each Darkspace Hub.
+  - The UI should also prevent users from using a selection of cards that are impossible.
+  - For example, a user should not be allowed to select a roll value that conflicts with a card they already own.
+  - Likewise, they should not be allowed to add a card that conflicts with a roll value that is chosen by a Darkspace hub they already own.
+- I prefer to code this up a single page application.
+- There should be a leaderboard that shows the score for all players at all times.
+- The cards should be sorted alphabetically in the UI.
+- The cards that the players own should also be sorted alphabetically.
+- The color coding for the card types must be color-blind friendly.
+  - There should be icons to distinguish between the 3 different types of cards.
+  - The color coding for the 3 different types of cards should be accessible by red-green color-blind people.
+
+################################################################################################################################################################################
+
+```
+---
+
+## **🤖 Gemini Prompt: Cosmos Empires Score Tracker**
+
+**Goal:** Create a user-friendly, single-page web application to track player scores (Total Production Value) for the board game **Cosmos Empires**. The entire application must be contained within three files: index.html, style.css, and script.js.
+
+**Technology Stack:**
+
+* **HTML, CSS, and vanilla JavaScript only.**  
+* **No frameworks** (e.g., React, Vue) or build tools (e.g., Webpack, npm). This ensures easy, direct deployment to services like GitHub Pages.  
+* The card data (provided below) must be **hard-coded** into a JavaScript object/array within script.js.
+
+---
+
+### **Data and Initial Setup**
+
+The following card data is derived from the user's parsed\_cards.textproto and must be used as the source of truth for the application.
+
+* The production mechanism is defined by either a fixed value or a complex description requiring a calculation.  
+* The roll\_value is only used for the *Transit Hub* calculation.  
+* The type is only used for the *Yggdrasil* calculation.
+
+**Required Card Data Structure (to be defined in script.js):**
+
+| Name | Cost | Type | Roll Value | Fixed Production (value) | Variable Production Logic |
+| :---- | :---- | :---- | :---- | :---- | :---- |
+| **Nautilus** | 1 | CT\_BIO | 2 | 2 | N/A |
+| **M.E.R.V** | 5 | CT\_MECH | 4 | 3 | N/A |
+| **Nebula Whale** | 2 | CT\_SPIRIT | 6 | 2 | N/A |
+| **Ancient Gate** | 3 | CT\_MECH | 7 | N/A | Production is equal to the largest set quantity of any single card name the player owns. **(This includes Ancient Gate itself).** |
+| **World Ship** | 6 | CT\_MECH | 3 | 4 | N/A |
+| **The Librarian** | 5 | CT\_SPIRIT | 5 | 3 | N/A |
+| **The Collective** | 8 | CT\_SPIRIT | 6 | N/A | Production is equal to **twice** the number of unique card names the player owns with a quantity of two or more. |
+| **Beacon Hub** | 4 | CT\_MECH | 1 | 8 | N/A |
+| **Yggdrasil** | 7 | CT\_BIO | 3 | N/A | Production is equal to the **total number of CT\_BIO cards** the player owns. **(This includes Yggdrasil itself).** |
+| **Fabricator Belt** | 7 | CT\_MECH | 5 | 1 | N/A |
+| **T-Wing** | 1 | CT\_MECH | 7 | 1 | N/A |
+| **Transit Hub** | 7 | CT\_MECH | 8 | N/A | Production is equal to the **number of different dice roll values (2-8)** represented by the player's owned cards. **(This includes Transit Hub's roll value of 8).** |
+| **Seraph Gate** | 5 | CT\_BIO | 4 | 1 | N/A |
+| **Discovery** | 2 | CT\_MECH | 6 | 1 | N/A |
+| **Deepspace Scouts** | 3 | CT\_MECH | 7 | 1 | N/A |
+| **Darkspace Hub** | 6 | CT\_MECH | N/A | 4 | N/A |
+
+---
+
+### **User Interface (UI) Requirements**
+
+The UI should prioritize a clean, game-like, and highly functional appearance.
+
+1. **Player Management:**  
+   * An initial setup/header section allowing the user to **add players** (up to 8 total) and **set/change their names**.  
+   * Use a simple color-coding scheme for players (e.g., Player 1: Blue, Player 2: Red, etc.).  
+   * **Data Persistence:** Player names and their current card quantities must be saved to the user's browser using **localStorage** (cookies are an outdated term for this purpose). The app should load the saved state upon reopening.  
+2. **Input Section (Card Tracker):**  
+   * The main area should be a centralized interface for selecting a player and entering their cards.  
+   * **Player Select:** A drop-down menu or set of tabs to select the currently active player for input.  
+   * **Card Search & Input:**  
+     * A **search bar** that filters the list of available cards as the user types.  
+     * Below the search bar, list the available cards. Next to each card, display a simple **quantity input** (e.g., a number input field or increment/decrement buttons) to track how many copies the active player owns.  
+     * The list should show the **Card Name**, **Cost**, and **Type** for context.  
+3. **Output Section (Leaderboard):**  
+   * A prominent, real-time-updating **Leaderboard Table**.  
+   * The table must display:  
+     * **Player Name**  
+     * **Total Production (Score)**  
+     * A way to **expand/toggle** a detailed breakdown for each player (showing which cards they own and how much production each variable card contributed).
+
+---
+
+### **Core Logic Requirements**
+
+The **script.js** file must contain a single function, calculatePlayerScore(playerCardQuantities), that encapsulates all the scoring logic.
+
+#### **1\. Standard Production**
+
+For cards with a fixed value (like *Nautilus* or *M.E.R.V* ), the production is simply quantity \* value.
+
+#### **2\. Complex Production**
+
+The function must implement the following variable scoring logic based on the owned cards (playerCardQuantities):
+
+* **Ancient Gate:**  
+  * Production is equal to the **maximum quantity** of any single, unique card name the player owns. This includes the *Ancient Gate* itself.  
+  * *Example:* Player owns 2 *Ancient Gate* and 5 *T-Wing*. Max quantity is 5\. **Each** *Ancient Gate* produces 5\.  
+* **The Collective:**  
+  * Production is $2 \\times N$, where $N$ is the **count of unique card names** (excluding The Collective itself) that the player owns with a quantity of $\\mathbf{2}$ or more.
+
+  * *Example:* Player owns 2 *M.E.R.V* and 4 *Nautilus*. This is $N=2$ (M.E.R.V and Nautilus). Production is $2 \\times 2 \= 4$.  
+* **Yggdrasil:**  
+  * Production is equal to the **total number of CT\_BIO cards** the player owns. This total **includes Yggdrasil** itself.
+
+* **Transit Hub:**  
+  * Production is equal to the **count of unique roll\_values** represented by all cards the player owns.  The roll value range is 2-8.
+
+  * The roll value of the **Transit Hub itself (8)** must be included in the count.
+
+#### **3\. Exclusion of Gameplay Abilities**
+
+Cards with abilities like *Beacon Hub*, *Fabricator Belt*, *Seraph Gate*, and *Deepspace Scouts* do **not** have production effects and are only relevant for their fixed value (if they have one).
+
+---
+
+### **Final Output Format**
+
+Provide the complete, commented code for the following three files:
+
+1. index.html  
+2. style.css  
+3. script.js
+```
+
+
+################################################################################################################################################################################
+
+Act as an expert web developer and board game logic designer.  
+I need a Single Page Application (SPA) to track scores for a board game called "Cosmos Empires".  
+The application must be contained in a single HTML file using React and Tailwind CSS via CDN. This is strict; do not use a build step (like Vite or Create React App) and do not separate CSS/JS files. I want to be able to drag-and-drop this file onto a server or GitHub Pages and have it work immediately.
+
+### **Game Overview**
+
+* **Players:** 2-8 players.  
+* **Scoring:** A player's score is equal to their Total Production.  
+* **Independence:** Scores are calculated based solely on the cards a specific player owns.  
+* **Card Mechanics:** Players buy cards. Cards have specific "Roll Values" (dice numbers associated with them) and "Production Values" (points).
+
+### **The Card Data**
+
+Here is the constant data for the game. Use this exactly:  
+const CARD\_DATA \= \[  
+  { name: "Nautilus", type: "BIO", cost: 1, prod: 2, roll: 2, qty: 7 },  
+  { name: "M.E.R.V", type: "MECH", cost: 5, prod: 3, roll: 4, qty: 7 },  
+  { name: "Nebula Whale", type: "SPIRIT", cost: 2, prod: 2, roll: 6, qty: 5 },  
+  { name: "Ancient Gate", type: "MECH", cost: 3, prod: "DYNAMIC", roll: 7, qty: 5,  
+    desc: "Prod \= Size of your largest set of a single card name." },  
+  { name: "World Ship", type: "MECH", cost: 6, prod: 4, roll: 3, qty: 5 },  
+  { name: "The Librarian", type: "SPIRIT", cost: 5, prod: 3, roll: 5, qty: 7 },  
+  { name: "The Collective", type: "SPIRIT", cost: 8, prod: "DYNAMIC", roll: 6, qty: 3,  
+    desc: "Prod \= 2 \* (Number of unique card names where you own \> 1 copy)." },  
+  { name: "Beacon Hub", type: "MECH", cost: 4, prod: 8, roll: 1, qty: 5 },  
+  { name: "Yggdrasil", type: "BIO", cost: 7, prod: "DYNAMIC", roll: 3, qty: 5,  
+    desc: "Prod \= Number of BIO cards you own (counts itself)." },  
+  { name: "Fabricator Belt", type: "MECH", cost: 7, prod: 1, roll: 5, qty: 5 },  
+  { name: "T-Wing", type: "MECH", cost: 1, prod: 1, roll: 7, qty: 5 },  
+  { name: "Transit Hub", type: "MECH", cost: 7, prod: "DYNAMIC", roll: 8, qty: 5,  
+    desc: "Prod \= Number of unique dice roll values you own. Max 7." },  
+  { name: "Seraph Gate", type: "BIO", cost: 5, prod: 1, roll: 4, qty: 5 },  
+  { name: "Discovery", type: "MECH", cost: 2, prod: 1, roll: 6, qty: 5 },  
+  { name: "Deepspace Scouts", type: "MECH", cost: 3, prod: 1, roll: 7, qty: 5 },  
+  { name: "Darkspace Hub", type: "MECH", cost: 6, prod: 4, roll: "CHOICE", qty: 5,  
+    desc: "On purchase, choose a roll value (2-8). Cannot match a roll value you already own." }  
+\];
+
+### **Functional Requirements**
+
+1. **Player Management:**  
+   * Allow adding players (up to 8).  
+   * Allow editing player names.  
+   * Allow removing players.  
+   * **Always Visible Leaderboard:** Show the current score for all players sorted by highest score.  
+2. **Card Management (Per Player):**  
+   * Users need to add cards to their specific hand.  
+   * Use a clean, dense UI (like a grid of buttons or a compact list) to add cards. Do not make the user scroll endlessly.  
+   * Display the count of each card owned.  
+   * Allow removing cards (in case of mis-click).  
+3. **Special Logic: "Darkspace Hub"**  
+   * This card does not have a fixed roll value. When a user adds this card, the UI must prompt them to **select a value between 2 and 8**.  
+   * **Constraint A:** A user cannot choose a value if they already own a card with that roll value. (e.g., If they own a Nautilus \[Roll 2\], they cannot choose 2 for the Hub).  
+   * **Constraint B:** If a user owns a Darkspace Hub set to a specific value (e.g., 5), they are **blocked** from adding any other card that has a natural Roll Value of 5 (e.g., The Librarian). Disable the button for that card and show a visual indicator why (e.g., "Blocked by Darkspace Hub").  
+4. **Scoring Logic (Total Production):**  
+   * **Standard Cards:** Sum of prod value.  
+   * **Ancient Gate:** Finds the card name with the highest quantity in the player's hand. Score \= that quantity.  
+   * **The Collective:** Calculate how many unique card names the player has 2 or more of. Score \= count \* 2\.  
+   * **Yggdrasil:** Score \= Count of cards with type "BIO".  
+   * **Transit Hub:** Score \= Count of unique roll values present in the hand (including manually set Darkspace values). **Cap this score at 7\.**
+
+### **UI/UX Design Preferences**
+
+* **Theme:** Space/Sci-fi dark mode. Use deep blues, purples, and slate greys (Tailwind slate-900, indigo-500, etc.).  
+* **Responsiveness:** Must work well on a tablet or desktop.  
+* **Error Prevention:** As mentioned in the Darkspace logic, prevent illegal moves rather than just warning about them.
+
+### **Deliverable**
+
+Generate the complete \`index.html

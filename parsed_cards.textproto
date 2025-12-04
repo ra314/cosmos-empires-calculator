@@ -1,0 +1,150 @@
+cards {
+  name: "Nautilus"
+  cost: 1
+  type: CT_BIO
+  production_value: 2
+  roll_value: 2
+  deck_quantity: 7
+  tips: "This is the second-best value-for-money card in the game. As a Bio it synergizes with Yggdrasil. It is also the only card with a roll value of 2, so you will need it (or a Darkspace Hub) to maximise your Transit Hub."
+}
+cards {
+  name: "M.E.R.V"
+  cost: 5
+  type: CT_MECH
+  production_value: 3
+  roll_value: 4
+  deck_quantity: 7
+  tips: "With seven copies in the deck, it is easy to get a second copy for The Collective and more for Ancient Gate."
+}
+cards {
+  name: "Nebula Whale"
+  cost: 2
+  type: CT_SPIRIT
+  production_value: 2
+  roll_value: 6
+  deck_quantity: 5
+  tips: "This is the best value-for-money card in the game, but, as a Spirit, it does not synergize with many cards."
+}
+cards {
+  name: "Ancient Gate"
+  cost: 3
+  ability: "Ancient Gate\'s production is equal to the largest set of the same card you have. For example with 1 Nautilus and 3 T-Wings, Ancient Gate\'s production is 3."
+  type: CT_MECH
+  production_description: "Production value is equal to the highest quantity of the same card you own"
+  roll_value: 7
+  deck_quantity: 5
+  tips: "This card can get big fast, great if you can get two or three early."
+}
+cards {
+  name: "World Ship"
+  cost: 6
+  type: CT_MECH
+  production_value: 4
+  roll_value: 3
+  deck_quantity: 5
+  tips: "This card has one of the highest flat production values, great to scale your income and total production."
+}
+cards {
+  name: "The Librarian"
+  cost: 5
+  type: CT_SPIRIT
+  production_value: 3
+  roll_value: 5
+  deck_quantity: 7
+  tips: "5 is the most likely roll value, this card is best if everyone has plenty of credits and will not be shifting their roll often."
+}
+cards {
+  name: "The Collective"
+  cost: 8
+  ability: "Example: If you have a T-Wing, 2 M.E.R.V.S., 4 Nautilus, and a Collective, its production would be 4 since you have two \'pairs\'."
+  type: CT_SPIRIT
+  production_description: "Production value is equal to twice the number of card names you have with more than one copy"
+  roll_value: 6
+  deck_quantity: 3
+  tips: "This card has great potential, but you need to plan for it!"
+}
+cards {
+  name: "Beacon Hub"
+  cost: 4
+  ability: "Mechs cost $1 less for you. This cannot reduce costs to below $0, but you can buy cards for free with this ability and multiple Beacon Hubs provide a cumulative discount."
+  type: CT_MECH
+  production_value: 1
+  roll_value: 8
+  deck_quantity: 5
+  tips: "Synergize this card with Fabricator Belt and churn out smaller mechs."
+}
+cards {
+  name: "Yggdrasil"
+  cost: 7
+  ability: "Yggdrasil counts itself as a Bio, so with 2 Nautilus and 1 Yggdrasil your Yggdrasil\'s production is 3."
+  type: CT_BIO
+  production_description: "Production value is equal to the number of Bio cards you have"
+  roll_value: 3
+  deck_quantity: 5
+  tips: "Grab all the Bios! You will probably be racing other Bio players for this card."
+}
+cards {
+  name: "Fabricator Belt"
+  cost: 7
+  ability: "Each turn, you may build an extra Mech. This does not count as an action; you may do this once per turn for each Fabricator Belt you in addition to your normal actions. You must still pay the card\'s cost."
+  type: CT_MECH
+  production_value: 1
+  roll_value: 5
+  deck_quantity: 5
+  tips: "Great in combination with Beacon Hub."
+}
+cards {
+  name: "T-Wing"
+  cost: 1
+  type: CT_MECH
+  production_value: 1
+  roll_value: 7
+  deck_quantity: 5
+  tips: "Great card to get with Fabricator Belt and Beacon Hub."
+}
+cards {
+  name: "Transit Hub"
+  cost: 7
+  ability: "Transit Hub counts itself when checking its set. For example with 1 Nautilus, 3 T-Wings and a Transit Hub, its production is 3."
+  type: CT_MECH
+  production_description: "Production value is equal to the number of different dice roll values you have"
+  roll_value: 8
+  deck_quantity: 5
+  tips: "This card gets large fast, but has a hard limit at 7 production."
+}
+cards {
+  name: "Seraph Gate"
+  cost: 5
+  ability: "You may shift your production roll by 1. This does not count as an action; you may do this once per turn for each Seraph Gate you own in addition to your normal actions."
+  type: CT_BIO
+  production_value: 1
+  roll_value: 4
+  deck_quantity: 5
+  tips: "Great if you have cards concentrated on a few roll values."
+}
+cards {
+  name: "Discovery"
+  cost: 2
+  type: CT_MECH
+  production_value: 1
+  roll_value: 6
+  deck_quantity: 5
+  tips: "Great card to get with Fabricator Belt and Beacon Hub."
+}
+cards {
+  name: "Deepspace Scouts"
+  cost: 3
+  ability: "Once per turn, you may cycle once. This does not count as an action: you may do this once per turn (after your roll) for each Deepspace Scouts you own, in addition to your normal actions. You do not take credits for this ability, unlike when cycling as an action."
+  type: CT_MECH
+  production_value: 1
+  roll_value: 7
+  deck_quantity: 5
+}
+cards {
+  name: "Darkspace Hub"
+  cost: 6
+  ability: "You set this card\'s roll value to any number (2-8) when you build it and, once set, it cannot be changed. Use a die to mark the chosen number. As the ability states, you cannot set it to match the roll value of any cards you already own. Note: this locks you out of ever buying other cards with that roll value."
+  type: CT_MECH
+  production_value: 4
+  deck_quantity: 5
+}
