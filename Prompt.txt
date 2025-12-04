@@ -51,7 +51,7 @@ The following card data is derived from the user's parsed\_cards.textproto and m
 | **World Ship** | 6 | CT\_MECH | 3 | 4 | N/A |
 | **The Librarian** | 5 | CT\_SPIRIT | 5 | 3 | N/A |
 | **The Collective** | 8 | CT\_SPIRIT | 6 | N/A | Production is equal to **twice** the number of unique card names the player owns with a quantity of two or more. |
-| **Beacon Hub** | 4 | CT\_MECH | 1 | 8 | N/A |
+| **Beacon Hub** | 4 | CT\_MECH | 8 | 1 | N/A |
 | **Yggdrasil** | 7 | CT\_BIO | 3 | N/A | Production is equal to the **total number of CT\_BIO cards** the player owns. **(This includes Yggdrasil itself).** |
 | **Fabricator Belt** | 7 | CT\_MECH | 5 | 1 | N/A |
 | **T-Wing** | 1 | CT\_MECH | 7 | 1 | N/A |
@@ -156,7 +156,7 @@ const CARD\_DATA \= \[
   { name: "The Librarian", type: "SPIRIT", cost: 5, prod: 3, roll: 5, qty: 7 },  
   { name: "The Collective", type: "SPIRIT", cost: 8, prod: "DYNAMIC", roll: 6, qty: 3,  
     desc: "Prod \= 2 \* (Number of unique card names where you own \> 1 copy)." },  
-  { name: "Beacon Hub", type: "MECH", cost: 4, prod: 8, roll: 1, qty: 5 },  
+  { name: "Beacon Hub", type: "MECH", cost: 4, prod: 1, roll: 8, qty: 5 },  
   { name: "Yggdrasil", type: "BIO", cost: 7, prod: "DYNAMIC", roll: 3, qty: 5,  
     desc: "Prod \= Number of BIO cards you own (counts itself)." },  
   { name: "Fabricator Belt", type: "MECH", cost: 7, prod: 1, roll: 5, qty: 5 },  
