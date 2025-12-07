@@ -16,7 +16,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useMemo } = React;
+    const { useState, useMemo, useRef, useEffect } = React;
 
     const CARD_DATA = [
       { name: "Nautilus", type: "BIO", cost: 1, prod: 2, roll: 2, qty: 7 },
@@ -47,6 +47,26 @@
       const [selectedPlayer, setSelectedPlayer] = useState(null);
       const [darkspaceModal, setDarkspaceModal] = useState(null);
 
+      // Undo state: stores last action, can be 'add' or 'remove'
+      const [undoAction, setUndoAction] = useState(null);
+
+      // For Ctrl+Z handler on the page:
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            // Only undo the last card add/remove (not player add/remove etc)
+            if (undoAction) {
+              handleUndo();
+              e.preventDefault();
+            }
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [undoAction, players, selectedPlayer]);
+
+      // --- Original handlers, but set undo state accordingly on card changes --
+
       const addPlayer = () => {
         if (players.length >= 8) return;
         const newPlayer = {
@@ -55,41 +75,84 @@
           cards: {}
         };
         setPlayers([...players, newPlayer]);
+        // Not tracked for undo (player add)
       };
 
       const removePlayer = (id) => {
         setPlayers(players.filter(p => p.id !== id));
         if (selectedPlayer === id) setSelectedPlayer(null);
+        // Not tracked for undo (player remove)
       };
 
       const updatePlayerName = (id, name) => {
         setPlayers(players.map(p => p.id === id ? { ...p, name } : p));
+        // Not tracked for undo (name change)
       };
 
       const addCard = (playerId, cardName, darkspaceRoll = null) => {
-        setPlayers(players.map(p => {
+        setPlayers(currPlayers => currPlayers.map(p => {
           if (p.id !== playerId) return p;
           const newCards = { ...p.cards };
           const key = darkspaceRoll ? `${cardName}:${darkspaceRoll}` : cardName;
           newCards[key] = (newCards[key] || 0) + 1;
           return { ...p, cards: newCards };
         }));
+
+        setUndoAction({
+          action: "add",
+          playerId,
+          cardKey: darkspaceRoll ? `${cardName}:${darkspaceRoll}` : cardName,
+        });
+
         setDarkspaceModal(null);
       };
 
       const removeCard = (playerId, cardKey) => {
-        setPlayers(players.map(p => {
+        setPlayers(currPlayers => currPlayers.map(p => {
           if (p.id !== playerId) return p;
           const newCards = { ...p.cards };
-          if (newCards[cardKey] > 1) {
+          const prevCount = newCards[cardKey];
+          if (prevCount > 1) {
             newCards[cardKey]--;
           } else {
             delete newCards[cardKey];
           }
           return { ...p, cards: newCards };
         }));
+
+        setUndoAction({
+          action: "remove",
+          playerId,
+          cardKey,
+        });
       };
 
+      // --- Undo handler ---
+      function handleUndo() {
+        if (!undoAction) return;
+        const { action, playerId, cardKey } = undoAction;
+        setPlayers(currPlayers => currPlayers.map(p => {
+          if (p.id !== playerId) return p;
+          const newCards = { ...p.cards };
+
+          if (action === "add") {
+            // undo add = remove one of that card (like removeCard)
+            if (newCards[cardKey] > 1) {
+              newCards[cardKey]--;
+            } else {
+              delete newCards[cardKey];
+            }
+          } else if (action === "remove") {
+            // undo remove = add back one of that card
+            newCards[cardKey] = (newCards[cardKey] || 0) + 1;
+          }
+
+          return { ...p, cards: newCards };
+        }));
+        setUndoAction(null);
+      }
+
+      // --- Scoring and helpers (no changes) ---
       const calculateScore = (player) => {
         let score = 0;
         const cardCounts = {};
@@ -221,6 +284,21 @@
                 >
                   Add Player ({players.length}/8)
                 </button>
+                <button
+                  onClick={handleUndo}
+                  disabled={!undoAction}
+                  className={`w-full mt-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition ${
+                    !undoAction ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                  title="Undo last card change (Ctrl+Z)"
+                >
+                  Undo{undoAction ? ` (${
+                    undoAction.action === "add" ? "added" : "removed"
+                  } card)` : ""}
+                </button>
+                <div className="text-xs text-slate-400 mt-1">
+                  Tip: Ctrl+Z for undo last card addition/removal.
+                </div>
               </div>
             </div>
 
