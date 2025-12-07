@@ -47,6 +47,9 @@
       const [selectedPlayer, setSelectedPlayer] = useState(null);
       const [darkspaceModal, setDarkspaceModal] = useState(null);
 
+      // New: State for selected roll value (for credit calculation)
+      const [selectedRoll, setSelectedRoll] = useState(2);
+
       // Undo state: stores last action, can be 'add' or 'remove'
       const [undoAction, setUndoAction] = useState(null);
 
@@ -54,7 +57,6 @@
       useEffect(() => {
         const handleKeyDown = (e) => {
           if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-            // Only undo the last card add/remove (not player add/remove etc)
             if (undoAction) {
               handleUndo();
               e.preventDefault();
@@ -65,8 +67,6 @@
         return () => window.removeEventListener('keydown', handleKeyDown);
       }, [undoAction, players, selectedPlayer]);
 
-      // --- Original handlers, but set undo state accordingly on card changes --
-
       const addPlayer = () => {
         if (players.length >= 8) return;
         const newPlayer = {
@@ -75,18 +75,15 @@
           cards: {}
         };
         setPlayers([...players, newPlayer]);
-        // Not tracked for undo (player add)
       };
 
       const removePlayer = (id) => {
         setPlayers(players.filter(p => p.id !== id));
         if (selectedPlayer === id) setSelectedPlayer(null);
-        // Not tracked for undo (player remove)
       };
 
       const updatePlayerName = (id, name) => {
         setPlayers(players.map(p => p.id === id ? { ...p, name } : p));
-        // Not tracked for undo (name change)
       };
 
       const addCard = (playerId, cardName, darkspaceRoll = null) => {
@@ -127,7 +124,6 @@
         });
       };
 
-      // --- Undo handler ---
       function handleUndo() {
         if (!undoAction) return;
         const { action, playerId, cardKey } = undoAction;
@@ -136,14 +132,12 @@
           const newCards = { ...p.cards };
 
           if (action === "add") {
-            // undo add = remove one of that card (like removeCard)
             if (newCards[cardKey] > 1) {
               newCards[cardKey]--;
             } else {
               delete newCards[cardKey];
             }
           } else if (action === "remove") {
-            // undo remove = add back one of that card
             newCards[cardKey] = (newCards[cardKey] || 0) + 1;
           }
 
@@ -152,43 +146,31 @@
         setUndoAction(null);
       }
 
-      // --- Scoring and helpers (no changes) ---
       const calculateScore = (player) => {
         let score = 0;
         const cardCounts = {};
         const rollValues = new Set();
-
-        // First pass: count cards and collect roll values
         Object.entries(player.cards).forEach(([key, count]) => {
           const [cardName, darkspaceRoll] = key.split(':');
           const card = CARD_DATA.find(c => c.name === cardName);
-          
           if (!card) return;
-
           cardCounts[cardName] = (cardCounts[cardName] || 0) + count;
-
           if (darkspaceRoll) {
             rollValues.add(parseInt(darkspaceRoll));
           } else if (card.roll !== "CHOICE" && card.roll !== "DYNAMIC") {
             rollValues.add(card.roll);
           }
         });
-
-        // Second pass: calculate scores
         Object.entries(player.cards).forEach(([key, count]) => {
           const [cardName] = key.split(':');
           const card = CARD_DATA.find(c => c.name === cardName);
-          
           if (!card) return;
-
           if (card.prod !== "DYNAMIC") {
             score += card.prod * count;
           } else if (cardName === "Ancient Gate") {
-            // Find the largest set of any single card name
             const maxSet = Math.max(...Object.values(cardCounts));
             score += maxSet * count;
           } else if (cardName === "The Collective") {
-            // Count unique card names where you own > 1 copy
             const multipleCards = Object.values(cardCounts).filter(c => c > 1).length;
             score += (multipleCards * 2) * count;
           } else if (cardName === "Yggdrasil") {
@@ -202,8 +184,66 @@
             score += Math.min(rollValues.size, 7) * count;
           }
         });
-
         return score;
+      };
+
+      const calculateProductionForRoll = (player, roll) => {
+        let prod = 0;
+        Object.entries(player.cards).forEach(([key, count]) => {
+          const [cardName, darkspaceRoll] = key.split(':');
+          const card = CARD_DATA.find(c => c.name === cardName);
+          if (!card) return;
+          let cardRoll = null;
+          if (card.roll === "CHOICE" && darkspaceRoll) {
+            cardRoll = parseInt(darkspaceRoll, 10);
+          } else if (card.roll !== "DYNAMIC") {
+            cardRoll = card.roll;
+          }
+          if (cardRoll == roll) {
+            if (card.prod !== "DYNAMIC") {
+              prod += card.prod * count;
+            } else if (cardName === "Ancient Gate") {
+              const cardCounts = {};
+              Object.entries(player.cards).forEach(([k2, c2]) => {
+                const [cn] = k2.split(':');
+                cardCounts[cn] = (cardCounts[cn] || 0) + c2;
+              });
+              const maxSet = Math.max(...Object.values(cardCounts));
+              prod += maxSet * count;
+            } else if (cardName === "The Collective") {
+              const cardCounts = {};
+              Object.entries(player.cards).forEach(([k2, c2]) => {
+                const [cn] = k2.split(':');
+                cardCounts[cn] = (cardCounts[cn] || 0) + c2;
+              });
+              const multiples = Object.values(cardCounts).filter(v => v > 1).length;
+              prod += (multiples * 2) * count;
+            } else if (cardName === "Yggdrasil") {
+              let bioCount = 0;
+              Object.entries(player.cards).forEach(([k2, cnt]) => {
+                const [cName2] = k2.split(':');
+                const c2 = CARD_DATA.find(cd => cd.name === cName2);
+                if (c2 && c2.type === "BIO") bioCount += cnt;
+              });
+              prod += bioCount * count;
+            } else if (cardName === "Transit Hub") {
+              const rolls = new Set();
+              Object.keys(player.cards).forEach(key2 => {
+                const [cn2, dsr2] = key2.split(':');
+                const c2 = CARD_DATA.find(c3 => c3.name === cn2);
+                if (c2) {
+                  if (c2.roll === "CHOICE" && dsr2) {
+                    rolls.add(parseInt(dsr2, 10));
+                  } else if (c2.roll !== "DYNAMIC") {
+                    rolls.add(c2.roll);
+                  }
+                }
+              });
+              prod += Math.min(rolls.size, 7) * count;
+            }
+          }
+        });
+        return prod;
       };
 
       const leaderboard = useMemo(() => {
@@ -244,6 +284,16 @@
         return false;
       };
 
+      const rollChoices = [2, 3, 4, 5, 6, 7, 8];
+
+      // === WIDTH CONTROL ANNOTATIONS HERE ===
+      // See below for col-span values. Change them to adjust widths:
+      //   Leaderboard panel:     'lg:col-span-1'   (narrow)
+      //   Player/card panel:     'lg:col-span-2'   (wider, default: 2x wider than others)
+      //   Die roll preview panel:'lg:col-span-1 lg:max-w-xs' (thinner, and with a max width)
+      //
+      // To tweak, adjust col-span numbers and possibly max-w-xs on the die roll panel
+
       return (
         <div className="min-h-screen p-4">
           <header className="text-center mb-8">
@@ -251,9 +301,10 @@
             <p className="text-slate-400">Score Tracker</p>
           </header>
 
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Leaderboard */}
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6">
+            {/* Leaderboard panel (narrow, tweak with col-span below) */}
             <div className="lg:col-span-1">
+              {/* [Width: LEADERBOARD] */}
               <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
                 <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
                 {leaderboard.length === 0 ? (
@@ -301,9 +352,9 @@
                 </div>
               </div>
             </div>
-
-            {/* Player Detail */}
-            <div className="lg:col-span-2">
+            {/* Player/card panel (wide, tweak with col-span below) */}
+            <div className="lg:col-span-3">
+              {/* [Width: PLAYER DETAIL PANEL] */}
               {selectedPlayer ? (
                 <PlayerDetail
                   player={players.find(p => p.id === selectedPlayer)}
@@ -328,6 +379,55 @@
                 </div>
               )}
             </div>
+            {/* Die roll preview panel (thin, tweak with col-span & max-w below) */}
+            <div className="lg:col-span-1">
+              {/* [Width: DIE ROLL PANEL] */}
+              <div className="bg-slate-800 rounded-lg p-4 border border-indigo-500/30 h-full flex flex-col">
+                <div className="font-semibold text-indigo-300 mb-3 text-center text-lg">
+                  Select die roll to preview round payout:
+                </div>
+                <div className="flex gap-2 items-center flex-wrap justify-center mb-3">
+                  {rollChoices.map(roll => (
+                    <button
+                      key={roll}
+                      className={`px-4 py-2 rounded font-bold text-lg ${
+                        selectedRoll === roll
+                          ? "bg-indigo-600 text-white border-2 border-indigo-400"
+                          : "bg-slate-700 text-indigo-300 hover:bg-indigo-600"
+                      }`}
+                      onClick={() => setSelectedRoll(roll)}
+                    >
+                      {roll}
+                    </button>
+                  ))}
+                </div>
+                {players.length === 0 ? (
+                  <div className="text-slate-500 text-center">No players to preview production.</div>
+                ) : (
+                  <div className="flex-1 flex flex-col justify-center">
+                    <div className="divide-y divide-slate-700">
+                      {players.map(player => (
+                        <div
+                          key={player.id}
+                          className={`flex items-center justify-between py-2 px-2 rounded ${
+                            selectedPlayer === player.id
+                              ? 'bg-indigo-600'
+                              : ''
+                          }`}
+                        >
+                          <div className="font-semibold truncate">{player.name}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-slate-400">Prod:</span>
+                            <span className="font-bold text-lg text-indigo-400">{calculateProductionForRoll(player, selectedRoll)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
 
           {/* Darkspace Hub Modal */}
@@ -345,25 +445,9 @@
 
     function PlayerDetail({ player, onRemovePlayer, onUpdateName, onAddCard, onRemoveCard, isCardBlocked, getBlockingHub, getPlayerRollValues }) {
       const [editingName, setEditingName] = useState(false);
-
-      const typeColors = {
-        BIO: 'bg-emerald-700 border-2 border-emerald-500',
-        MECH: 'bg-sky-700 border-2 border-sky-500',
-        SPIRIT: 'bg-violet-700 border-2 border-violet-500'
-      };
-
-      const typeIcons = {
-        BIO: '🌿',
-        MECH: '⚙️',
-        SPIRIT: '✨'
-      };
-
-      const typeBadgeStyles = {
-        BIO: 'bg-emerald-600 border border-emerald-400',
-        MECH: 'bg-sky-600 border border-sky-400',
-        SPIRIT: 'bg-violet-600 border border-violet-400'
-      };
-
+      const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
+      const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
+      const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
       return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
           <div className="flex items-center justify-between mb-6">
@@ -482,7 +566,6 @@
     function DarkspaceModal({ player, onSelect, onClose, getPlayerRollValues }) {
       const occupiedRolls = getPlayerRollValues(player);
       const availableRolls = [2, 3, 4, 5, 6, 7, 8].filter(r => !occupiedRolls.has(r));
-
       return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full border-2 border-indigo-500">
