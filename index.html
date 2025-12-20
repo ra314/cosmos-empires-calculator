@@ -25,8 +25,8 @@
       { name: "Ancient Gate", type: "MECH", cost: 3, prod: "DYNAMIC", roll: 7, qty: 5,
         desc: "Prod = Size of your largest set of a single card name." },
       { name: "World Ship", type: "MECH", cost: 6, prod: 4, roll: 3, qty: 5 },
-      { name: "The Librarian", type: "SPIRIT", cost: 5, prod: 3, roll: 5, qty: 7 },
-      { name: "The Collective", type: "SPIRIT", cost: 8, prod: "DYNAMIC", roll: 6, qty: 3,
+      { name: "Librarian", type: "SPIRIT", cost: 5, prod: 3, roll: 5, qty: 7 },
+      { name: "Collective", type: "SPIRIT", cost: 8, prod: "DYNAMIC", roll: 6, qty: 3,
         desc: "Prod = 2 * (Number of unique card names where you own > 1 copy)." },
       { name: "Beacon Hub", type: "MECH", cost: 4, prod: 1, roll: 8, qty: 5 },
       { name: "Yggdrasil", type: "BIO", cost: 7, prod: "DYNAMIC", roll: 3, qty: 5,
@@ -42,13 +42,19 @@
         desc: "On purchase, choose a roll value (2-8). Cannot match a roll value you already own." }
     ].sort((a, b) => a.name.localeCompare(b.name));
 
+    const ProdBadge = ({ value, animate = false }) => (
+      <span className={`bg-emerald-500 text-[10px] text-emerald-950 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center justify-center min-w-[24px] ${animate ? 'animate-pulse' : ''}`}>
+        +{value}
+      </span>
+    );
+
     function App() {
       const [players, setPlayers] = useState([]);
       const [selectedPlayer, setSelectedPlayer] = useState(null);
       const [darkspaceModal, setDarkspaceModal] = useState(null);
       const [selectedRoll, setSelectedRoll] = useState(2);
       const [undoAction, setUndoAction] = useState(null);
-      const [showDelta, setShowDelta] = useState(true); // Toggle State
+      const [showDelta, setShowDelta] = useState(true);
 
       useEffect(() => {
         const handleKeyDown = (e) => {
@@ -86,161 +92,100 @@
         setPlayers(currPlayers => currPlayers.map(p => {
           if (p.id !== playerId) return p;
           const newCards = { ...p.cards };
-          const key = darkspaceRoll ? `${cardName}:${darkspaceRoll}` : cardName;
-          newCards[key] = (newCards[key] || 0) + 1;
+          if (!newCards[cardName]) newCards[cardName] = [];
+          newCards[cardName].push(darkspaceRoll);
           return { ...p, cards: newCards };
         }));
 
-        setUndoAction({
-          action: "add",
-          playerId,
-          cardKey: darkspaceRoll ? `${cardName}:${darkspaceRoll}` : cardName,
-        });
-
+        setUndoAction({ action: "add", playerId, cardName, roll: darkspaceRoll });
         setDarkspaceModal(null);
       };
 
-      const removeCard = (playerId, cardKey) => {
+      const removeCard = (playerId, cardName) => {
         setPlayers(currPlayers => currPlayers.map(p => {
           if (p.id !== playerId) return p;
           const newCards = { ...p.cards };
-          const prevCount = newCards[cardKey];
-          if (prevCount > 1) {
-            newCards[cardKey]--;
-          } else {
-            delete newCards[cardKey];
+          if (newCards[cardName] && newCards[cardName].length > 0) {
+            const removedRoll = newCards[cardName].pop();
+            if (newCards[cardName].length === 0) delete newCards[cardName];
+            setUndoAction({ action: "remove", playerId, cardName, roll: removedRoll });
           }
           return { ...p, cards: newCards };
         }));
-
-        setUndoAction({
-          action: "remove",
-          playerId,
-          cardKey,
-        });
       };
 
       function handleUndo() {
         if (!undoAction) return;
-        const { action, playerId, cardKey } = undoAction;
+        const { action, playerId, cardName, roll } = undoAction;
         setPlayers(currPlayers => currPlayers.map(p => {
           if (p.id !== playerId) return p;
           const newCards = { ...p.cards };
-
           if (action === "add") {
-            if (newCards[cardKey] > 1) {
-              newCards[cardKey]--;
-            } else {
-              delete newCards[cardKey];
-            }
-          } else if (action === "remove") {
-            newCards[cardKey] = (newCards[cardKey] || 0) + 1;
+            newCards[cardName].pop();
+            if (newCards[cardName].length === 0) delete newCards[cardName];
+          } else {
+            if (!newCards[cardName]) newCards[cardName] = [];
+            newCards[cardName].push(roll);
           }
-
           return { ...p, cards: newCards };
         }));
         setUndoAction(null);
       }
 
-      // Reusable scoring logic for deltas
-      const calculateScore = (playerCardObj) => {
-        let score = 0;
+      const calculateCardContribution = (cardName, rolls, playerCardObj) => {
+        const card = CARD_DATA.find(c => c.name === cardName);
+        if (!card) return 0;
+        const count = rolls.length;
+
         const cardCounts = {};
-        const rollValues = new Set();
-        
-        Object.entries(playerCardObj).forEach(([key, count]) => {
-          const [cardName, darkspaceRoll] = key.split(':');
-          const card = CARD_DATA.find(c => c.name === cardName);
-          if (!card) return;
-          cardCounts[cardName] = (cardCounts[cardName] || 0) + count;
-          if (darkspaceRoll) {
-            rollValues.add(parseInt(darkspaceRoll));
-          } else if (card.roll !== "CHOICE" && card.roll !== "DYNAMIC") {
-            rollValues.add(card.roll);
-          }
+        Object.entries(playerCardObj).forEach(([name, rList]) => {
+          cardCounts[name] = rList.length;
         });
 
-        Object.entries(playerCardObj).forEach(([key, count]) => {
-          const [cardName] = key.split(':');
-          const card = CARD_DATA.find(c => c.name === cardName);
-          if (!card) return;
-          if (card.prod !== "DYNAMIC") {
-            score += card.prod * count;
-          } else if (cardName === "Ancient Gate") {
-            const maxSet = Math.max(...Object.values(cardCounts), 0);
-            score += maxSet * count;
-          } else if (cardName === "The Collective") {
-            const multipleCards = Object.values(cardCounts).filter(c => c > 1).length;
-            score += (multipleCards * 2) * count;
-          } else if (cardName === "Yggdrasil") {
-            const bioCount = Object.entries(playerCardObj).reduce((sum, [k, cnt]) => {
-              const [cName] = k.split(':');
-              const c = CARD_DATA.find(cd => cd.name === cName);
-              return sum + (c && c.type === "BIO" ? cnt : 0);
-            }, 0);
-            score += bioCount * count;
-          } else if (cardName === "Transit Hub") {
-            score += Math.min(rollValues.size, 7) * count;
-          }
-        });
-        return score;
+        let perCardVal = 0;
+        if (card.prod !== "DYNAMIC") {
+          perCardVal = card.prod;
+        } else if (cardName === "Ancient Gate") {
+          perCardVal = Math.max(...Object.values(cardCounts), 0);
+        } else if (cardName === "Collective") {
+          perCardVal = Object.values(cardCounts).filter(c => c > 1).length * 2;
+        } else if (cardName === "Yggdrasil") {
+          const bioCount = Object.entries(playerCardObj).reduce((sum, [cName, rList]) => {
+            const c = CARD_DATA.find(cd => cd.name === cName);
+            return sum + (c && c.type === "BIO" ? rList.length : 0);
+          }, 0);
+          perCardVal = bioCount;
+        } else if (cardName === "Transit Hub") {
+          const rollSet = new Set();
+          Object.entries(playerCardObj).forEach(([cName, rList]) => {
+            const c = CARD_DATA.find(cd => cd.name === cName);
+            rList.forEach(r => {
+              if (r !== null) rollSet.add(r);
+              else if (c && c.roll !== "CHOICE" && c.roll !== "DYNAMIC") rollSet.add(c.roll);
+            });
+          });
+          perCardVal = Math.min(rollSet.size, 7);
+        }
+        return perCardVal * count;
+      };
+
+      const calculateScore = (playerCardObj) => {
+        return Object.entries(playerCardObj).reduce((acc, [name, rolls]) => {
+          return acc + calculateCardContribution(name, rolls, playerCardObj);
+        }, 0);
       };
 
       const calculateProductionForRoll = (player, roll) => {
         let prod = 0;
-        Object.entries(player.cards).forEach(([key, count]) => {
-          const [cardName, darkspaceRoll] = key.split(':');
-          const card = CARD_DATA.find(c => c.name === cardName);
+        Object.entries(player.cards).forEach(([name, rolls]) => {
+          const card = CARD_DATA.find(c => c.name === name);
           if (!card) return;
-          let cardRoll = null;
-          if (card.roll === "CHOICE" && darkspaceRoll) {
-            cardRoll = parseInt(darkspaceRoll, 10);
-          } else if (card.roll !== "DYNAMIC") {
-            cardRoll = card.roll;
-          }
-          if (cardRoll == roll) {
-            if (card.prod !== "DYNAMIC") {
-              prod += card.prod * count;
-            } else if (cardName === "Ancient Gate") {
-              const cardCounts = {};
-              Object.entries(player.cards).forEach(([k2, c2]) => {
-                const [cn] = k2.split(':');
-                cardCounts[cn] = (cardCounts[cn] || 0) + c2;
-              });
-              const maxSet = Math.max(...Object.values(cardCounts));
-              prod += maxSet * count;
-            } else if (cardName === "The Collective") {
-              const cardCounts = {};
-              Object.entries(player.cards).forEach(([k2, c2]) => {
-                const [cn] = k2.split(':');
-                cardCounts[cn] = (cardCounts[cn] || 0) + c2;
-              });
-              const multiples = Object.values(cardCounts).filter(v => v > 1).length;
-              prod += (multiples * 2) * count;
-            } else if (cardName === "Yggdrasil") {
-              let bioCount = 0;
-              Object.entries(player.cards).forEach(([k2, cnt]) => {
-                const [cName2] = k2.split(':');
-                const c2 = CARD_DATA.find(cd => cd.name === cName2);
-                if (c2 && c2.type === "BIO") bioCount += cnt;
-              });
-              prod += bioCount * count;
-            } else if (cardName === "Transit Hub") {
-              const rolls = new Set();
-              Object.keys(player.cards).forEach(key2 => {
-                const [cn2, dsr2] = key2.split(':');
-                const c2 = CARD_DATA.find(c3 => c3.name === cn2);
-                if (c2) {
-                  if (c2.roll === "CHOICE" && dsr2) {
-                    rolls.add(parseInt(dsr2, 10));
-                  } else if (c2.roll !== "DYNAMIC") {
-                    rolls.add(c2.roll);
-                  }
-                }
-              });
-              prod += Math.min(rolls.size, 7) * count;
-            }
-          }
+          let cardSpecificTotal = calculateCardContribution(name, rolls, player.cards);
+          let perCardValue = rolls.length > 0 ? cardSpecificTotal / rolls.length : 0;
+          rolls.forEach(r => {
+            const effectiveRoll = r !== null ? r : card.roll;
+            if (effectiveRoll == roll) prod += perCardValue;
+          });
         });
         return prod;
       };
@@ -253,37 +198,15 @@
 
       const getPlayerRollValues = (player) => {
         const rolls = new Set();
-        Object.keys(player.cards).forEach(key => {
-          const [cardName, darkspaceRoll] = key.split(':');
-          if (darkspaceRoll) {
-            rolls.add(parseInt(darkspaceRoll));
-          } else {
-            const card = CARD_DATA.find(c => c.name === cardName);
-            if (card && card.roll !== "CHOICE" && card.roll !== "DYNAMIC") {
-              rolls.add(card.roll);
-            }
-          }
+        Object.entries(player.cards).forEach(([name, rList]) => {
+          const card = CARD_DATA.find(c => c.name === name);
+          rList.forEach(r => {
+            if (r !== null) rolls.add(r);
+            else if (card && card.roll !== "CHOICE" && card.roll !== "DYNAMIC") rolls.add(card.roll);
+          });
         });
         return rolls;
       };
-
-      const isCardBlocked = (player, card) => {
-        if (card.roll === "CHOICE") return false;
-        const rolls = getPlayerRollValues(player);
-        return rolls.has(card.roll);
-      };
-
-      const getBlockingHub = (player, roll) => {
-        for (const key of Object.keys(player.cards)) {
-          if (key.startsWith("Darkspace Hub:")) {
-            const hubRoll = parseInt(key.split(':')[1]);
-            if (hubRoll === roll) return true;
-          }
-        }
-        return false;
-      };
-
-      const rollChoices = [2, 3, 4, 5, 6, 7, 8];
       
       // === WIDTH CONTROL ANNOTATIONS HERE ===
       // See below for col-span values. Change them to adjust widths:
@@ -293,7 +216,6 @@
       //
       // To tweak, adjust col-span numbers and possibly max-w-xs on the die roll panel
 
-
       return (
         <div className="min-h-screen p-4">
           <header className="text-center mb-8">
@@ -301,68 +223,35 @@
             <p className="text-slate-400">Score Tracker</p>
           </header>
 
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-6 gap-6">
             <div className="lg:col-span-1">
               <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
                 <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
-                {leaderboard.length === 0 ? (
-                  <p className="text-slate-500">No players yet</p>
-                ) : (
+                {leaderboard.length === 0 ? <p className="text-slate-500">No players yet</p> : (
                   <div className="space-y-2">
                     {leaderboard.map((p, idx) => (
-                      <div
-                        key={p.id}
-                        className={`flex items-center justify-between p-3 rounded ${
-                          selectedPlayer === p.id ? 'bg-indigo-600' : 'bg-slate-700'
-                        } cursor-pointer hover:bg-indigo-600/50`}
-                        onClick={() => setSelectedPlayer(p.id)}
-                      >
+                      <div key={p.id} onClick={() => setSelectedPlayer(p.id)} className={`flex items-center justify-between p-3 rounded cursor-pointer ${selectedPlayer === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}>
                         <div className="flex items-center gap-3">
                           <span className="text-2xl font-bold text-indigo-300">#{idx + 1}</span>
-                          <span className="font-semibold">{p.name}</span>
+                          <span className="font-semibold text-sm">{p.name}</span>
                         </div>
                         <span className="text-2xl font-bold text-indigo-400">{p.score}</span>
                       </div>
                     ))}
                   </div>
                 )}
-                <button
-                  onClick={addPlayer}
-                  disabled={players.length >= 8}
-                  className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-2 px-4 rounded transition"
-                >
-                  Add Player ({players.length}/8)
-                </button>
-                <button
-                  onClick={handleUndo}
-                  disabled={!undoAction}
-                  className={`w-full mt-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition ${
-                    !undoAction ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                  title="Undo last card change (Ctrl+Z)"
-                >
-                  Undo{undoAction ? ` (${
-                    undoAction.action === "add" ? "added" : "removed"
-                  } card)` : ""}
-                </button>
-                <div className="text-xs text-slate-400 mt-1">
-                  Tip: Ctrl+Z for undo last card addition/removal.
-                </div>
-
-                {/* Show Delta Toggle */}
-                <div className="flex items-center justify-between mt-6 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
-                  <span className="text-sm font-semibold text-indigo-300">Show Delta (+X)</span>
-                  <button 
-                    onClick={() => setShowDelta(!showDelta)}
-                    className={`w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-200 ${showDelta ? 'left-7' : 'left-1'}`} />
+                <button onClick={addPlayer} disabled={players.length >= 8} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white font-bold py-2 px-4 rounded transition">Add</button>
+                <button onClick={handleUndo} disabled={!undoAction} className={`w-full mt-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition ${!undoAction ? "opacity-50 cursor-not-allowed" : ""}`}>Undo</button>
+                <div className="flex items-center justify-between mt-6 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
+                  <span className="text-[10px] font-semibold text-indigo-300">Show Delta</span>
+                  <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showDelta ? 'left-5' : 'left-1'}`} />
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-4">
               {selectedPlayer ? (
                 <PlayerDetail
                   player={players.find(p => p.id === selectedPlayer)}
@@ -370,18 +259,14 @@
                   onUpdateName={updatePlayerName}
                   onAddCard={(cardName) => {
                     const card = CARD_DATA.find(c => c.name === cardName);
-                    if (card.roll === "CHOICE") {
-                      setDarkspaceModal({ playerId: selectedPlayer, cardName });
-                    } else {
-                      addCard(selectedPlayer, cardName);
-                    }
+                    if (card.roll === "CHOICE") setDarkspaceModal({ playerId: selectedPlayer, cardName });
+                    else addCard(selectedPlayer, cardName);
                   }}
                   onRemoveCard={removeCard}
-                  isCardBlocked={isCardBlocked}
-                  getBlockingHub={getBlockingHub}
                   getPlayerRollValues={getPlayerRollValues}
                   showDelta={showDelta}
                   calculateScore={calculateScore}
+                  calculateCardContribution={calculateCardContribution}
                 />
               ) : (
                 <div className="bg-slate-800 rounded-lg p-12 border border-indigo-500/30 text-center">
@@ -392,48 +277,22 @@
 
             <div className="lg:col-span-1">
               <div className="bg-slate-800 rounded-lg p-4 border border-indigo-500/30 h-full flex flex-col">
-                <div className="font-semibold text-indigo-300 mb-3 text-center text-lg">
-                  Select die roll to preview round payout:
-                </div>
+                <div className="font-semibold text-indigo-300 mb-3 text-center text-lg">Payout:</div>
                 <div className="flex gap-2 items-center flex-wrap justify-center mb-3">
-                  {rollChoices.map(roll => (
-                    <button
-                      key={roll}
-                      className={`px-4 py-2 rounded font-bold text-lg ${
-                        selectedRoll === roll
-                          ? "bg-indigo-600 text-white border-2 border-indigo-400"
-                          : "bg-slate-700 text-indigo-300 hover:bg-indigo-600"
-                      }`}
-                      onClick={() => setSelectedRoll(roll)}
-                    >
-                      {roll}
-                    </button>
+                  {[2,3,4,5,6,7,8].map(roll => (
+                    <button key={roll} onClick={() => setSelectedRoll(roll)} className={`px-4 py-2 rounded font-bold text-lg ${selectedRoll === roll ? "bg-indigo-600 text-white border-2 border-indigo-400" : "bg-slate-700 text-indigo-300 hover:bg-indigo-600"}`}>{roll}</button>
                   ))}
                 </div>
-                {players.length === 0 ? (
-                  <div className="text-slate-500 text-center">No players to preview production.</div>
-                ) : (
-                  <div className="flex-1 flex flex-col justify-center">
-                    <div className="divide-y divide-slate-700">
-                      {players.map(player => (
-                        <div
-                          key={player.id}
-                          className={`flex items-center justify-between py-2 px-2 rounded ${
-                            selectedPlayer === player.id
-                              ? 'bg-indigo-600'
-                              : ''
-                          }`}
-                        >
-                          <div className="font-semibold truncate">{player.name}</div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-slate-400">Prod:</span>
-                            <span className="font-bold text-lg text-indigo-400">{calculateProductionForRoll(player, selectedRoll)}</span>
-                          </div>
-                        </div>
-                      ))}
+                <div className="flex-1 flex flex-col justify-center divide-y divide-slate-700">
+                  {players.map(player => (
+                    <div key={player.id} className={`flex items-center justify-between py-2 px-2 rounded ${selectedPlayer === player.id ? 'bg-indigo-600' : ''}`}>
+                      <div className="font-semibold truncate text-xs">{player.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-indigo-400">{calculateProductionForRoll(player, selectedRoll)}</span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -450,70 +309,56 @@
       );
     }
 
-    function PlayerDetail({ player, onRemovePlayer, onUpdateName, onAddCard, onRemoveCard, isCardBlocked, getBlockingHub, getPlayerRollValues, showDelta, calculateScore }) {
+    function PlayerDetail({ player, onRemovePlayer, onUpdateName, onAddCard, onRemoveCard, getPlayerRollValues, showDelta, calculateScore, calculateCardContribution }) {
       const [editingName, setEditingName] = useState(false);
       const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
       const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
       const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
-      
+
+      const getBlockingHub = (roll) => {
+        if (!player.cards["Darkspace Hub"]) return false;
+        return player.cards["Darkspace Hub"].includes(roll);
+      };
+
       return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
           <div className="flex items-center justify-between mb-6">
-            {editingName ? (
-              <input
-                type="text"
-                value={player.name}
-                onChange={(e) => onUpdateName(player.id, e.target.value)}
-                onBlur={() => setEditingName(false)}
-                onKeyPress={(e) => e.key === 'Enter' && setEditingName(false)}
-                className="text-2xl font-bold bg-slate-700 text-white px-3 py-1 rounded border border-indigo-500"
-                autoFocus
-              />
-            ) : (
-              <h2
-                className="text-2xl font-bold text-indigo-400 cursor-pointer hover:text-indigo-300"
-                onClick={() => setEditingName(true)}
-              >
-                {player.name}
-              </h2>
-            )}
-            <button
-              onClick={() => onRemovePlayer(player.id)}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold"
-            >
-              Remove Player
-            </button>
+            {editingName ? <input value={player.name} onChange={(e) => onUpdateName(player.id, e.target.value)} onBlur={() => setEditingName(false)} className="text-2xl font-bold bg-slate-700 text-white px-3 py-1 rounded border border-indigo-500" autoFocus /> : 
+            <h2 onClick={() => setEditingName(true)} className="text-2xl font-bold text-indigo-400 cursor-pointer">{player.name}</h2>}
+            <button onClick={() => onRemovePlayer(player.id)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold text-sm">Remove Player</button>
           </div>
 
-          <div className="mb-6">
-            <h3 className="text-xl font-semibold mb-3 text-indigo-300">Your Cards</h3>
-            {Object.keys(player.cards).length === 0 ? (
-              <p className="text-slate-500">No cards yet</p>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {Object.entries(player.cards).map(([key, count]) => {
-                  const [cardName, darkspaceRoll] = key.split(':');
-                  const card = CARD_DATA.find(c => c.name === cardName);
+          <div className="mb-10">
+            <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Your Cards</h3>
+            {Object.keys(player.cards).length === 0 ? <p className="text-slate-500">No cards yet</p> : (
+              // Changed grid-cols to max 3 columns to ensure titles like Deepspace Scouts fit
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Object.entries(player.cards).map(([name, rolls]) => {
+                  const card = CARD_DATA.find(c => c.name === name);
+                  const contribution = calculateCardContribution(name, rolls, player.cards);
+                  const validRolls = rolls.filter(r => r !== null).sort();
+                  const rollLabel = validRolls.length > 1 ? "Rolls" : "Roll";
+                  const rollStr = validRolls.join(', ');
+
                   return (
-                    <div
-                      key={key}
-                      className={`${typeColors[card.type]} p-2 rounded flex items-center justify-between`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm truncate">{cardName}</div>
-                        {darkspaceRoll && (
-                          <div className="text-xs opacity-90">Roll: {darkspaceRoll}</div>
-                        )}
+                    <div key={name} className={`${typeColors[card.type]} p-2 px-3 rounded flex flex-col justify-center whitespace-nowrap overflow-hidden`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <span className="font-bold text-sm truncate">{name}</span>
+                          {contribution > 0 && <ProdBadge value={contribution} />}
+                        </div>
+                        
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-bold text-lg">×{rolls.length}</span>
+                          <button onClick={() => onRemoveCard(player.id, name)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded flex items-center justify-center text-xs font-bold shadow-sm shrink-0">−</button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 ml-2">
-                        <span className="font-bold text-lg">×{count}</span>
-                        <button
-                          onClick={() => onRemoveCard(player.id, key)}
-                          className="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded flex items-center justify-center text-sm font-bold"
-                        >
-                          −
-                        </button>
-                      </div>
+                      
+                      {rollStr && (
+                        <div className="text-[9px] bg-black/30 px-1 rounded mt-1 self-start">
+                          {rollLabel}: {rollStr}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -522,64 +367,39 @@
           </div>
 
           <div>
-            <h3 className="text-xl font-semibold mb-3 text-indigo-300">Add Cards</h3>
+            <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Add Cards</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {CARD_DATA.map(card => {
-                const blocked = isCardBlocked(player, card);
-                const blockedByHub = card.roll !== "CHOICE" && getBlockingHub(player, card.roll);
-                const isDisabled = blocked && blockedByHub;
+                const rolls = getPlayerRollValues(player);
+                const blockedByRoll = card.roll !== "CHOICE" && rolls.has(card.roll);
+                const blockedByHub = card.roll !== "CHOICE" && getBlockingHub(card.roll);
+                const isDisabled = blockedByRoll && blockedByHub;
 
-                // Calculate Delta Badge
-                let deltaBadge = null;
+                let deltaValue = 0;
                 if (showDelta) {
                   const currentScore = calculateScore(player.cards);
-                  const hypoCards = { ...player.cards };
-                  const key = card.roll === "CHOICE" ? `${card.name}:temp` : card.name;
-                  hypoCards[key] = (hypoCards[key] || 0) + 1;
-                  const delta = calculateScore(hypoCards) - currentScore;
-                  if (delta > 0) {
-                    deltaBadge = (
-                      <span className="bg-emerald-500 text-[10px] text-emerald-950 font-black px-1.5 py-0.5 rounded animate-pulse">
-                        +{delta}
-                      </span>
-                    );
-                  }
+                  const hypoCards = JSON.parse(JSON.stringify(player.cards));
+                  if (!hypoCards[card.name]) hypoCards[card.name] = [];
+                  hypoCards[card.name].push(card.roll === "CHOICE" ? 0 : card.roll);
+                  deltaValue = calculateScore(hypoCards) - currentScore;
                 }
 
                 return (
-                  <button
-                    key={card.name}
-                    onClick={() => !isDisabled && onAddCard(card.name)}
-                    disabled={isDisabled}
-                    className={`${typeColors[card.type]} ${
-                      isDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-110'
-                    } p-3 rounded text-left transition relative`}
-                  >
+                  <button key={card.name} onClick={() => !isDisabled && onAddCard(card.name)} disabled={isDisabled} className={`${typeColors[card.type]} ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-110'} p-3 rounded text-left transition relative`}>
                     <div className="flex justify-between items-start">
                       <div className="flex-1 flex items-start gap-2">
                         <span className="text-2xl">{typeIcons[card.type]}</span>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <div className="font-bold text-sm">{card.name}</div>
-                            {deltaBadge}
+                            {deltaValue > 0 && <ProdBadge value={deltaValue} animate={true} />}
                           </div>
-                          <div className="text-xs opacity-90 mt-1">
-                            Cost: {card.cost} | Prod: {card.prod} | Roll: {card.roll}
-                          </div>
-                          {card.desc && (
-                            <div className="text-xs opacity-75 mt-1 italic">{card.desc}</div>
-                          )}
+                          <div className="text-xs opacity-90 mt-1">Cost: {card.cost} | Prod: {card.prod} | Roll: {card.roll}</div>
                         </div>
                       </div>
-                      <span className={`${typeBadgeStyles[card.type]} px-2 py-1 rounded text-xs font-bold ml-2 shrink-0`}>
-                        {card.type}
-                      </span>
+                      <span className={`${typeBadgeStyles[card.type]} px-2 py-1 rounded text-xs font-bold ml-2 shrink-0`}>{card.type}</span>
                     </div>
-                    {isDisabled && blockedByHub && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded">
-                        <span className="text-xs font-bold text-red-400">🚫 Blocked by Darkspace Hub</span>
-                      </div>
-                    )}
+                    {isDisabled && <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded"><span className="text-xs font-bold text-red-400">🚫 Blocked by Hub</span></div>}
                   </button>
                 );
               })}
@@ -590,44 +410,17 @@
     }
 
     function DarkspaceModal({ player, onSelect, onClose, getPlayerRollValues }) {
-      const occupiedRolls = getPlayerRollValues(player);
-      const availableRolls = [2, 3, 4, 5, 6, 7, 8].filter(r => !occupiedRolls.has(r));
+      const occupied = getPlayerRollValues(player);
       return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full border-2 border-indigo-500">
-            <h3 className="text-2xl font-bold text-indigo-400 mb-4">Choose Darkspace Hub Roll Value</h3>
-            <p className="text-slate-300 mb-4">Select a roll value (2-8) that you don't already own.</p>
-            
-            {availableRolls.length === 0 ? (
-              <div className="text-red-400 mb-4">No available roll values! You own all rolls 2-8.</div>
-            ) : (
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {[2, 3, 4, 5, 6, 7, 8].map(roll => {
-                  const isAvailable = availableRolls.includes(roll);
-                  return (
-                    <button
-                      key={roll}
-                      onClick={() => isAvailable && onSelect(roll)}
-                      disabled={!isAvailable}
-                      className={`py-3 px-4 rounded font-bold text-lg ${
-                        isAvailable
-                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                          : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {roll}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <button
-              onClick={onClose}
-              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded"
-            >
-              Cancel
-            </button>
+            <h3 className="text-2xl font-bold text-indigo-400 mb-4 text-center">Assign Roll Value</h3>
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {[2,3,4,5,6,7,8].map(roll => (
+                <button key={roll} onClick={() => !occupied.has(roll) && onSelect(roll)} disabled={occupied.has(roll)} className={`py-3 px-4 rounded font-bold text-lg ${!occupied.has(roll) ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>{roll}</button>
+              ))}
+            </div>
+            <button onClick={onClose} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded">Cancel</button>
           </div>
         </div>
       );
