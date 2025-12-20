@@ -46,14 +46,10 @@
       const [players, setPlayers] = useState([]);
       const [selectedPlayer, setSelectedPlayer] = useState(null);
       const [darkspaceModal, setDarkspaceModal] = useState(null);
-
-      // New: State for selected roll value (for credit calculation)
       const [selectedRoll, setSelectedRoll] = useState(2);
-
-      // Undo state: stores last action, can be 'add' or 'remove'
       const [undoAction, setUndoAction] = useState(null);
+      const [showDelta, setShowDelta] = useState(true); // Toggle State
 
-      // For Ctrl+Z handler on the page:
       useEffect(() => {
         const handleKeyDown = (e) => {
           if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -146,11 +142,13 @@
         setUndoAction(null);
       }
 
-      const calculateScore = (player) => {
+      // Reusable scoring logic for deltas
+      const calculateScore = (playerCardObj) => {
         let score = 0;
         const cardCounts = {};
         const rollValues = new Set();
-        Object.entries(player.cards).forEach(([key, count]) => {
+        
+        Object.entries(playerCardObj).forEach(([key, count]) => {
           const [cardName, darkspaceRoll] = key.split(':');
           const card = CARD_DATA.find(c => c.name === cardName);
           if (!card) return;
@@ -161,20 +159,21 @@
             rollValues.add(card.roll);
           }
         });
-        Object.entries(player.cards).forEach(([key, count]) => {
+
+        Object.entries(playerCardObj).forEach(([key, count]) => {
           const [cardName] = key.split(':');
           const card = CARD_DATA.find(c => c.name === cardName);
           if (!card) return;
           if (card.prod !== "DYNAMIC") {
             score += card.prod * count;
           } else if (cardName === "Ancient Gate") {
-            const maxSet = Math.max(...Object.values(cardCounts));
+            const maxSet = Math.max(...Object.values(cardCounts), 0);
             score += maxSet * count;
           } else if (cardName === "The Collective") {
             const multipleCards = Object.values(cardCounts).filter(c => c > 1).length;
             score += (multipleCards * 2) * count;
           } else if (cardName === "Yggdrasil") {
-            const bioCount = Object.entries(player.cards).reduce((sum, [k, cnt]) => {
+            const bioCount = Object.entries(playerCardObj).reduce((sum, [k, cnt]) => {
               const [cName] = k.split(':');
               const c = CARD_DATA.find(cd => cd.name === cName);
               return sum + (c && c.type === "BIO" ? cnt : 0);
@@ -248,7 +247,7 @@
 
       const leaderboard = useMemo(() => {
         return players
-          .map(p => ({ ...p, score: calculateScore(p) }))
+          .map(p => ({ ...p, score: calculateScore(p.cards) }))
           .sort((a, b) => b.score - a.score);
       }, [players]);
 
@@ -285,7 +284,7 @@
       };
 
       const rollChoices = [2, 3, 4, 5, 6, 7, 8];
-
+      
       // === WIDTH CONTROL ANNOTATIONS HERE ===
       // See below for col-span values. Change them to adjust widths:
       //   Leaderboard panel:     'lg:col-span-1'   (narrow)
@@ -293,6 +292,7 @@
       //   Die roll preview panel:'lg:col-span-1 lg:max-w-xs' (thinner, and with a max width)
       //
       // To tweak, adjust col-span numbers and possibly max-w-xs on the die roll panel
+
 
       return (
         <div className="min-h-screen p-4">
@@ -302,9 +302,7 @@
           </header>
 
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6">
-            {/* Leaderboard panel (narrow, tweak with col-span below) */}
             <div className="lg:col-span-1">
-              {/* [Width: LEADERBOARD] */}
               <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
                 <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
                 {leaderboard.length === 0 ? (
@@ -350,11 +348,21 @@
                 <div className="text-xs text-slate-400 mt-1">
                   Tip: Ctrl+Z for undo last card addition/removal.
                 </div>
+
+                {/* Show Delta Toggle */}
+                <div className="flex items-center justify-between mt-6 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
+                  <span className="text-sm font-semibold text-indigo-300">Show Delta (+X)</span>
+                  <button 
+                    onClick={() => setShowDelta(!showDelta)}
+                    className={`w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-200 ${showDelta ? 'left-7' : 'left-1'}`} />
+                  </button>
+                </div>
               </div>
             </div>
-            {/* Player/card panel (wide, tweak with col-span below) */}
+
             <div className="lg:col-span-3">
-              {/* [Width: PLAYER DETAIL PANEL] */}
               {selectedPlayer ? (
                 <PlayerDetail
                   player={players.find(p => p.id === selectedPlayer)}
@@ -372,6 +380,8 @@
                   isCardBlocked={isCardBlocked}
                   getBlockingHub={getBlockingHub}
                   getPlayerRollValues={getPlayerRollValues}
+                  showDelta={showDelta}
+                  calculateScore={calculateScore}
                 />
               ) : (
                 <div className="bg-slate-800 rounded-lg p-12 border border-indigo-500/30 text-center">
@@ -379,9 +389,8 @@
                 </div>
               )}
             </div>
-            {/* Die roll preview panel (thin, tweak with col-span & max-w below) */}
+
             <div className="lg:col-span-1">
-              {/* [Width: DIE ROLL PANEL] */}
               <div className="bg-slate-800 rounded-lg p-4 border border-indigo-500/30 h-full flex flex-col">
                 <div className="font-semibold text-indigo-300 mb-3 text-center text-lg">
                   Select die roll to preview round payout:
@@ -427,10 +436,8 @@
                 )}
               </div>
             </div>
-
           </div>
 
-          {/* Darkspace Hub Modal */}
           {darkspaceModal && (
             <DarkspaceModal
               player={players.find(p => p.id === darkspaceModal.playerId)}
@@ -443,11 +450,12 @@
       );
     }
 
-    function PlayerDetail({ player, onRemovePlayer, onUpdateName, onAddCard, onRemoveCard, isCardBlocked, getBlockingHub, getPlayerRollValues }) {
+    function PlayerDetail({ player, onRemovePlayer, onUpdateName, onAddCard, onRemoveCard, isCardBlocked, getBlockingHub, getPlayerRollValues, showDelta, calculateScore }) {
       const [editingName, setEditingName] = useState(false);
       const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
       const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
       const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
+      
       return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
           <div className="flex items-center justify-between mb-6">
@@ -477,7 +485,6 @@
             </button>
           </div>
 
-          {/* Player's Cards */}
           <div className="mb-6">
             <h3 className="text-xl font-semibold mb-3 text-indigo-300">Your Cards</h3>
             {Object.keys(player.cards).length === 0 ? (
@@ -514,7 +521,6 @@
             )}
           </div>
 
-          {/* Add Cards */}
           <div>
             <h3 className="text-xl font-semibold mb-3 text-indigo-300">Add Cards</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -523,20 +529,40 @@
                 const blockedByHub = card.roll !== "CHOICE" && getBlockingHub(player, card.roll);
                 const isDisabled = blocked && blockedByHub;
 
+                // Calculate Delta Badge
+                let deltaBadge = null;
+                if (showDelta) {
+                  const currentScore = calculateScore(player.cards);
+                  const hypoCards = { ...player.cards };
+                  const key = card.roll === "CHOICE" ? `${card.name}:temp` : card.name;
+                  hypoCards[key] = (hypoCards[key] || 0) + 1;
+                  const delta = calculateScore(hypoCards) - currentScore;
+                  if (delta > 0) {
+                    deltaBadge = (
+                      <span className="bg-emerald-500 text-[10px] text-emerald-950 font-black px-1.5 py-0.5 rounded animate-pulse">
+                        +{delta}
+                      </span>
+                    );
+                  }
+                }
+
                 return (
                   <button
                     key={card.name}
                     onClick={() => !isDisabled && onAddCard(card.name)}
                     disabled={isDisabled}
                     className={`${typeColors[card.type]} ${
-                      isDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-600'
+                      isDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-110'
                     } p-3 rounded text-left transition relative`}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1 flex items-start gap-2">
                         <span className="text-2xl">{typeIcons[card.type]}</span>
                         <div className="flex-1">
-                          <div className="font-bold text-sm">{card.name}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-bold text-sm">{card.name}</div>
+                            {deltaBadge}
+                          </div>
                           <div className="text-xs opacity-90 mt-1">
                             Cost: {card.cost} | Prod: {card.prod} | Roll: {card.roll}
                           </div>
@@ -545,7 +571,7 @@
                           )}
                         </div>
                       </div>
-                      <span className={`${typeBadgeStyles[card.type]} px-2 py-1 rounded text-xs font-bold ml-2`}>
+                      <span className={`${typeBadgeStyles[card.type]} px-2 py-1 rounded text-xs font-bold ml-2 shrink-0`}>
                         {card.type}
                       </span>
                     </div>
