@@ -58,8 +58,8 @@ const getPlayerRollValues = (player) => {
 
 // --- Helper Components ---
 
-const ProdBadge = ({ value, animate = false }) => (
-    <span className={`bg-emerald-500 text-[10px] text-emerald-950 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center justify-center min-w-[24px] ${animate ? 'animate-pulse' : ''}`}>
+const ProdBadge = ({ value }) => (
+    <span className={`bg-emerald-500 text-sm text-emerald-950 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center justify-center min-w-[24px]`}>
         +{value}
     </span>
 );
@@ -161,7 +161,7 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <div className="font-bold text-sm">{card.name}</div>
-                                                {deltaValue > 0 && <ProdBadge value={deltaValue} animate={true} />}
+                                                {deltaValue > 0 && <ProdBadge value={deltaValue} />}
                                             </div>
                                             <div className="text-xs opacity-90">Prod: {card.prod} | Roll: {card.roll}</div>
                                         </div>
@@ -263,6 +263,14 @@ function App() {
             <header className="text-center mb-8">
                 <h1 className="text-5xl font-bold text-indigo-400 mb-2">COSMOS EMPIRES</h1>
                 <p className="text-slate-400">Score Tracker</p>
+                <a 
+                    href="https://github.com/ra314/cosmos-empires-calculator" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-indigo-500 hover:text-indigo-400 text-sm mt-3 inline-block underline decoration-indigo-500/30 underline-offset-4"
+                >
+                    View on GitHub
+                </a>
             </header>
 
             <div className="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-6 gap-6">
