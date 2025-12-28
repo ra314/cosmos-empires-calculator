@@ -2,13 +2,13 @@
  * Cosmos Empires - Card Database
  */
 
-enum CardType {
+export enum CardType {
     BIO = "BIO",
     MECH = "MECH",
     SPIRIT = "SPIRIT"
 }
 
-enum CardName {
+export enum CardName {
     ANCIENT_GATE = "Ancient Gate",
     BEACON_HUB = "Beacon Hub",
     COLLECTIVE = "Collective",
@@ -30,7 +30,7 @@ enum CardName {
 type ProdValue = number | "DYNAMIC";
 type RollValue = number | "CHOICE";
 
-interface Card {
+export interface Card {
     name: CardName;
     type: CardType;
     cost: number;
@@ -40,7 +40,7 @@ interface Card {
     desc?: string;
 }
 
-const CARD_DATA: Map<CardName, Card>  = new Map([
+export const CARD_DATA: Map<CardName, Card>  = new Map([
     { name: CardName.ANCIENT_GATE,     type: CardType.MECH,    cost: 3, prod: "DYNAMIC" as const, 	roll: 7, 				qty: 5, desc: "Prod = Size of your largest set of a single card name." },
     { name: CardName.BEACON_HUB,       type: CardType.MECH,    cost: 4, prod: 1, 					roll: 8, 				qty: 5 },
     { name: CardName.COLLECTIVE,       type: CardType.SPIRIT,  cost: 8, prod: "DYNAMIC" as const, 	roll: 6, 				qty: 3, desc: "Prod = 2 * (Number of unique card names where you own > 1 copy)." },

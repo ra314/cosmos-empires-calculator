@@ -1,4 +1,4 @@
-/// <reference path="data.ts" />
+import { Card, CardName, CardType, CARD_DATA } from './data';
 
 type DiceRollValue = 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -12,7 +12,7 @@ interface PlayerCards {
     cards: Map<CardName, PlayerCardInstance>;
 }
 
-function calcDynProd(cardName: CardName, playerCardObj: PlayerCards): number {
+export function calcDynProd(cardName: CardName, playerCardObj: PlayerCards): number {
     // We use instance.data.name instead of looking up in a Map
     switch (cardName) {
         // Prod = Size of your largest set of a single card name.
@@ -58,7 +58,7 @@ function calcSingleCardProd(instance: PlayerCardInstance, playerCardObj: PlayerC
     return instance.data.prod;
 }
 
-function calculateScore(playerCardObj: PlayerCards): number {
+export function calculateScore(playerCardObj: PlayerCards): number {
     let total = 0;
     for (const instance of playerCardObj.cards.values()) {
         total += calcSingleCardProd(instance, playerCardObj)*instance.qty;
@@ -75,7 +75,7 @@ function numActivatedCards(instance: PlayerCardInstance, roll: number): number {
     return (instance.roll ?? []).filter(num => num === roll).length;
 }
 
-function calculateProductionForRoll(playerCardObj: PlayerCards, roll: number): number {
+export function calculateProductionForRoll(playerCardObj: PlayerCards, roll: number): number {
     let totalProd = 0;
     for (const instance of playerCardObj.cards.values()) {
         let num = numActivatedCards(instance, roll);

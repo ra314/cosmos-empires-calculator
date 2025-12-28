@@ -1,8 +1,12 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import ReactDOM from 'react-dom/client';
+import { CARD_DATA } from './data';
+import { calculateScore, calculateProductionForRoll, calcDynProd } from './logic';
+
+
 /**
  * Cosmos Empires - UI Controller
  */
-const { useState, useMemo, useEffect } = React;
-
 // --- Helpers to bridge UI State to Logic.js ---
 
 // Converts UI state { "CardName": [rolls] } to the Map structure logic.js expects
