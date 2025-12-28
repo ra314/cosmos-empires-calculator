@@ -1,0 +1,20 @@
+/* Custom Scrollbars */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Custom Animations */
+@keyframes pulse-emerald {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+}
+
+.animate-pulse {
+    animation: pulse-emerald 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Card Type Specifics */
+.type-bio { background: #065f46; border: 2px solid #10b981; }
+.type-mech { background: #075985; border: 2px solid #0ea5e9; }
+.type-spirit { background: #5b21b6; border: 2px solid #8b5cf6; }
