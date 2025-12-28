@@ -85,7 +85,7 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
 
 // --- Updated PlayerDetail with editable name ---
 
-function PlayerDetail({ player, onAddCard, onRename, showDelta, setShowDelta }) {
+function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, setShowDelta }) {
     const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
     const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
@@ -125,7 +125,10 @@ function PlayerDetail({ player, onAddCard, onRename, showDelta, setShowDelta }) 
                                         <span className="font-bold text-sm truncate">{name}</span>
                                         {contribution > 0 && <ProdBadge value={contribution} />}
                                     </div>
-                                    <span className="font-bold text-lg shrink-0">×{rolls.length}</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="font-bold text-lg shrink-0">×{rolls.length}</span>
+                                        <button onClick={() => onRemoveCard(player.id, name)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded flex items-center justify-center text-xs font-bold shadow-sm shrink-0">−</button>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -212,6 +215,21 @@ function App() {
         setDarkspaceModal(null);
     };
 
+    const removeCard = (playerId, cardName) => {
+        setPlayers(curr => curr.map(p => {
+            if (p.id !== playerId) return p;
+            const newCards = { ...p.cards };
+            if (newCards[cardName]) {
+                newCards[cardName].pop(); // Remove the last card instance
+                if (newCards[cardName].length === 0) {
+                    delete newCards[cardName]; // Remove the card if no instances left
+                }
+            }
+            return { ...p, cards: newCards };
+        }));
+        setUndoAction({ action: "remove", playerId, cardName });
+    };
+
     const handleUndo = () => {
         if (!undoAction) return;
         const { action, playerId, cardName } = undoAction;
@@ -221,6 +239,9 @@ function App() {
             if (action === "add" && newCards[cardName]) {
                 newCards[cardName].pop();
                 if (newCards[cardName].length === 0) delete newCards[cardName];
+            } else if (action === "remove") {
+                if (!newCards[cardName]) newCards[cardName] = [];
+                newCards[cardName].push(CARD_DATA.get(cardName).roll === "CHOICE" ? 0 : CARD_DATA.get(cardName).roll);
             }
             return { ...p, cards: newCards };
         }));
@@ -267,6 +288,7 @@ function App() {
                                 if (card.roll === "CHOICE") setDarkspaceModal({ playerId: selectedPlayer, cardName: name });
                                 else addCard(selectedPlayer, name, card.roll);
                             }}
+                            onRemoveCard={removeCard}
                             showDelta={showDelta}
                             setShowDelta={setShowDelta}
                         />
