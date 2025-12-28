@@ -1,14 +1,14 @@
-import { CARD_DATA, CardType, CardName, Card as DataCard } from './data';
+/// <reference path="data.ts" />
 
-export type DiceRollValue = 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type DiceRollValue = 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-export interface PlayerCardInstance {
-    readonly data: DataCard; 
+interface PlayerCardInstance {
+    readonly data: Card; 
     qty: number;
     roll?: DiceRollValue[];
 }
 
-export interface PlayerCards {
+interface PlayerCards {
     cards: Map<CardName, PlayerCardInstance>;
 }
 
@@ -58,7 +58,7 @@ function calcSingleCardProd(instance: PlayerCardInstance, playerCardObj: PlayerC
     return instance.data.prod;
 }
 
-export function calculateScore(playerCardObj: PlayerCards): number {
+function calculateScore(playerCardObj: PlayerCards): number {
     let total = 0;
     for (const instance of playerCardObj.cards.values()) {
         total += calcSingleCardProd(instance, playerCardObj)*instance.qty;
@@ -75,7 +75,7 @@ function numActivatedCards(instance: PlayerCardInstance, roll: number): number {
     return (instance.roll ?? []).filter(num => num === roll).length;
 }
 
-export function calculateProductionForRoll(playerCardObj: PlayerCards, roll: number): number {
+function calculateProductionForRoll(playerCardObj: PlayerCards, roll: number): number {
     let totalProd = 0;
     for (const instance of playerCardObj.cards.values()) {
         let num = numActivatedCards(instance, roll);

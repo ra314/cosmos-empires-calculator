@@ -3,6 +3,55 @@
  */
 const { useState, useMemo, useEffect } = React;
 
+// --- Helpers to bridge UI State to Logic.js ---
+
+// Converts UI state { "CardName": [rolls] } to the Map structure logic.js expects
+const sync = (playerCardState) => {
+    const cardsMap = new Map();
+    
+    Object.entries(playerCardState).forEach(([name, rolls]) => {
+        const data = CARD_DATA.get(name);
+        if (data) {
+            cardsMap.set(name, {
+                data: data,
+                qty: rolls.length,
+                roll: data.roll === "CHOICE" ? rolls : []
+            });
+        }
+    });
+
+    return { cards: cardsMap };
+};
+
+// Calculates the contribution of a single card type for the UI badges
+const calculateCardContribution = (cardName, rolls, allCards) => {
+    const synced = sync(allCards);
+    const instance = synced.cards.get(cardName);
+    if (!instance) return 0;
+    
+    // This replicates the logic.js calculation for a single card type
+    const prod = (typeof instance.data.prod === 'number') 
+        ? instance.data.prod 
+        : calcDynProd(cardName, synced);
+    
+    return prod * instance.qty;
+};
+
+// Gets all roll values currently claimed by a player (for Darkspace logic)
+const getPlayerRollValues = (player) => {
+    if (!player) return new Set();
+    const values = new Set();
+    Object.entries(player.cards).forEach(([name, rolls]) => {
+        const data = CARD_DATA.get(name);
+        if (data.roll === "CHOICE") {
+            rolls.forEach(r => values.add(r));
+        } else {
+            values.add(data.roll);
+        }
+    });
+    return values;
+};
+
 // --- Helper Components ---
 
 const ProdBadge = ({ value, animate = false }) => (
@@ -34,10 +83,12 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
     );
 }
 
-function PlayerDetail({ player, onAddCard, onRemoveCard, showDelta, setShowDelta }) {
+function PlayerDetail({ player, onAddCard, showDelta, setShowDelta }) {
     const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
     const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
+
+    const cardList = Array.from(CARD_DATA.values());
 
     return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
@@ -57,7 +108,7 @@ function PlayerDetail({ player, onAddCard, onRemoveCard, showDelta, setShowDelta
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Your Cards</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Object.entries(player.cards).map(([name, rolls]) => {
-                        const card = CARD_DATA.find(c => c.name === name);
+                        const card = CARD_DATA.get(name);
                         const contribution = calculateCardContribution(name, rolls, player.cards);
                         return (
                             <div key={name} className={`${typeColors[card.type]} p-2 px-3 rounded flex flex-col justify-center`}>
@@ -77,14 +128,14 @@ function PlayerDetail({ player, onAddCard, onRemoveCard, showDelta, setShowDelta
             <div>
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Add Cards</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {CARD_DATA.map(card => {
+                    {cardList.map(card => {
                         let deltaValue = 0;
                         if (showDelta) {
-                            const currentScore = calculateScore(player.cards);
+                            const currentScore = calculateScore(sync(player.cards));
                             const hypoCards = JSON.parse(JSON.stringify(player.cards));
                             if (!hypoCards[card.name]) hypoCards[card.name] = [];
                             hypoCards[card.name].push(card.roll === "CHOICE" ? 0 : card.roll);
-                            deltaValue = calculateScore(hypoCards) - currentScore;
+                            deltaValue = calculateScore(sync(hypoCards)) - currentScore;
                         }
 
                         return (
@@ -130,7 +181,7 @@ function App() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undoAction, players]);
+    }, [undoAction]);
 
     const addPlayer = () => {
         if (players.length >= 8) return;
@@ -145,7 +196,7 @@ function App() {
             newCards[cardName].push(darkspaceRoll);
             return { ...p, cards: newCards };
         }));
-        setUndoAction({ action: "add", playerId, cardName, roll: darkspaceRoll });
+        setUndoAction({ action: "add", playerId, cardName });
         setDarkspaceModal(null);
     };
 
@@ -166,7 +217,7 @@ function App() {
 
     const leaderboard = useMemo(() => {
         return players
-            .map(p => ({ ...p, score: calculateScore(p.cards) }))
+            .map(p => ({ ...p, score: calculateScore(sync(p.cards)) }))
             .sort((a, b) => b.score - a.score);
     }, [players]);
 
@@ -182,7 +233,7 @@ function App() {
                     <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
                         <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
                         <div className="space-y-2">
-                            {leaderboard.map((p, idx) => (
+                            {leaderboard.map((p) => (
                                 <div key={p.id} onClick={() => setSelectedPlayer(p.id)} className={`flex items-center justify-between p-3 rounded cursor-pointer ${selectedPlayer === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}>
                                     <span className="font-semibold text-sm">{p.name}</span>
                                     <span className="text-2xl font-bold text-indigo-400">{p.score}</span>
@@ -199,9 +250,9 @@ function App() {
                         <PlayerDetail 
                             player={players.find(p => p.id === selectedPlayer)} 
                             onAddCard={(name) => {
-                                const card = CARD_DATA.find(c => c.name === name);
+                                const card = CARD_DATA.get(name);
                                 if (card.roll === "CHOICE") setDarkspaceModal({ playerId: selectedPlayer, cardName: name });
-                                else addCard(selectedPlayer, name);
+                                else addCard(selectedPlayer, name, card.roll);
                             }}
                             showDelta={showDelta}
                             setShowDelta={setShowDelta}
@@ -223,7 +274,7 @@ function App() {
                             {players.map(p => (
                                 <div key={p.id} className={`flex justify-between p-2 rounded text-xs ${selectedPlayer === p.id ? 'bg-indigo-900/40' : 'bg-slate-900/30'}`}>
                                     <span className="truncate mr-2">{p.name}</span>
-                                    <span className="font-bold text-indigo-400">+{calculateProductionForRoll(p, selectedRoll)}</span>
+                                    <span className="font-bold text-indigo-400">+{calculateProductionForRoll(sync(p.cards), selectedRoll)}</span>
                                 </div>
                             ))}
                         </div>

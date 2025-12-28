@@ -2,13 +2,13 @@
  * Cosmos Empires - Card Database
  */
 
-export enum CardType {
+enum CardType {
     BIO = "BIO",
     MECH = "MECH",
     SPIRIT = "SPIRIT"
 }
 
-export enum CardName {
+enum CardName {
     ANCIENT_GATE = "Ancient Gate",
     BEACON_HUB = "Beacon Hub",
     COLLECTIVE = "Collective",
@@ -27,10 +27,10 @@ export enum CardName {
     YGGDRASIL = "Yggdrasil"
 }
 
-export type ProdValue = number | "DYNAMIC";
-export type RollValue = number | "CHOICE";
+type ProdValue = number | "DYNAMIC";
+type RollValue = number | "CHOICE";
 
-export interface Card {
+interface Card {
     name: CardName;
     type: CardType;
     cost: number;
@@ -40,7 +40,7 @@ export interface Card {
     desc?: string;
 }
 
-export const CARD_DATA: Map<CardName, Card>  = new Map([
+const CARD_DATA: Map<CardName, Card>  = new Map([
     { name: CardName.ANCIENT_GATE,     type: CardType.MECH,    cost: 3, prod: "DYNAMIC" as const, 	roll: 7, 				qty: 5, desc: "Prod = Size of your largest set of a single card name." },
     { name: CardName.BEACON_HUB,       type: CardType.MECH,    cost: 4, prod: 1, 					roll: 8, 				qty: 5 },
     { name: CardName.COLLECTIVE,       type: CardType.SPIRIT,  cost: 8, prod: "DYNAMIC" as const, 	roll: 6, 				qty: 3, desc: "Prod = 2 * (Number of unique card names where you own > 1 copy)." },
@@ -57,4 +57,4 @@ export const CARD_DATA: Map<CardName, Card>  = new Map([
     { name: CardName.TRANSIT_HUB,      type: CardType.MECH,    cost: 7, prod: "DYNAMIC" as const, 	roll: 8, 				qty: 5, desc: "Prod = Number of unique dice roll values you own. Max 7." },
     { name: CardName.WORLD_SHIP,       type: CardType.MECH,    cost: 6, prod: 4, 					roll: 3, 				qty: 5 },
     { name: CardName.YGGDRASIL,        type: CardType.BIO,     cost: 7, prod: "DYNAMIC" as const, 	roll: 3, 				qty: 5, desc: "Prod = Number of BIO cards you own (counts itself)." }
-].map(card => [card.name, Object.freeze(card)]));
+].map(card => [card.name, card]));
