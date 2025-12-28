@@ -274,7 +274,7 @@ function App() {
                                         value={p.name}
                                         onChange={(e) => renamePlayer(p.id, e.target.value)}
                                         onClick={() => setSelectedPlayer(p.id)}
-                                        className="bg-transparent font-semibold text-sm truncate min-w-0 flex-1 border-b border-transparent hover:border-indigo-300 focus:border-indigo-400 focus:outline-none text-white"
+                                        className="bg-transparent font-semibold text-lg truncate min-w-0 flex-1 border-b border-transparent hover:border-indigo-300 focus:border-indigo-400 focus:outline-none text-white"
                                     />
                                     <span className="text-lg font-bold text-indigo-400 shrink-0">{p.score}</span>
                                 </div>
@@ -320,7 +320,7 @@ function App() {
                         </div>
                         <div className="space-y-2">
                             {players.map(p => (
-                                <div key={p.id} className={`flex justify-between p-2 rounded text-xs ${selectedPlayer === p.id ? 'bg-indigo-900/40' : 'bg-slate-900/30'}`}>
+                                <div key={p.id} className={`flex justify-between p-2 rounded text-lg ${selectedPlayer === p.id ? 'bg-indigo-900/40' : 'bg-slate-900/30'}`}>
                                     <span className="truncate mr-2">{p.name}</span>
                                     <span className="font-bold text-indigo-400">+{calculateProductionForRoll(sync(p.cards), selectedRoll)}</span>
                                 </div>
