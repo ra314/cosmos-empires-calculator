@@ -98,23 +98,6 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
 
     return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <input 
-                    type="text"
-                    value={player.name}
-                    onChange={(e) => onRename(player.id, e.target.value)}
-                    className="bg-slate-900 text-2xl font-bold text-indigo-400 border-b-2 border-transparent focus:border-indigo-500 focus:outline-none px-2 py-1 rounded w-full md:w-auto"
-                    placeholder="Enter player name..."
-                />
-                <div className="flex items-center gap-4 shrink-0">
-                    <div className="flex items-center gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
-                        <span className="text-[10px] font-semibold text-indigo-300 uppercase">Delta</span>
-                        <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showDelta ? 'left-5' : 'left-1'}`} />
-                        </button>
-                    </div>
-                </div>
-            </div>
 
             <div className="mb-10">
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Your Cards</h3>
@@ -282,17 +265,29 @@ function App() {
             <div className="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-6 gap-6">
                 <div className="lg:col-span-1">
                     <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
-                        <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
+                                <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
                         <div className="space-y-2">
                             {leaderboard.map((p) => (
-                                <div key={p.id} onClick={() => setSelectedPlayer(p.id)} className={`flex items-center justify-between p-3 rounded cursor-pointer ${selectedPlayer === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}>
-                                    <span className="font-semibold text-sm truncate">{p.name}</span>
-                                    <span className="text-2xl font-bold text-indigo-400 ml-2">{p.score}</span>
+                                <div key={p.id} className={`flex items-center gap-2 p-3 rounded ${selectedPlayer === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}>
+                                    <input
+                                        type="text"
+                                        value={p.name}
+                                        onChange={(e) => renamePlayer(p.id, e.target.value)}
+                                        onClick={() => setSelectedPlayer(p.id)}
+                                        className="bg-transparent font-semibold text-sm truncate min-w-0 flex-1 border-b border-transparent hover:border-indigo-300 focus:border-indigo-400 focus:outline-none text-white"
+                                    />
+                                    <span className="text-lg font-bold text-indigo-400 shrink-0">{p.score}</span>
                                 </div>
                             ))}
                         </div>
                         <button onClick={addPlayer} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded">Add Player</button>
                         <button onClick={handleUndo} disabled={!undoAction} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${!undoAction && 'opacity-30'}`}>Undo</button>
+                        <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700 mt-3">
+                            <span className="text-[10px] font-semibold text-indigo-300 uppercase">Delta</span>
+                            <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
+                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showDelta ? 'left-5' : 'left-1'}`} />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
