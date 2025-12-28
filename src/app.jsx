@@ -95,6 +95,7 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
 
     const cardList = Array.from(CARD_DATA.values());
+    const occupiedRolls = getPlayerRollValues(player);
 
     return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
@@ -136,15 +137,28 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
                             deltaValue = calculateScore(sync(hypoCards)) - currentScore;
                         }
 
+                        // Check if this card's roll value conflicts with occupied rolls
+                        const isConflicting = card.roll !== "CHOICE" && occupiedRolls.has(card.roll);
+
                         return (
-                            <button key={card.name} onClick={() => onAddCard(card.name)} className={`${typeColors[card.type]} hover:brightness-110 p-3 rounded text-left transition`}>
+                            <button 
+                                key={card.name} 
+                                onClick={() => !isConflicting && onAddCard(card.name)} 
+                                disabled={isConflicting}
+                                className={`${
+                                    isConflicting 
+                                        ? 'bg-slate-600 opacity-50 cursor-not-allowed' 
+                                        : typeColors[card.type] + ' hover:brightness-110'
+                                } p-3 rounded text-left transition`}
+                            >
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-start gap-2">
                                         <span className="text-2xl">{typeIcons[card.type]}</span>
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <div className="font-bold text-sm">{card.name}</div>
-                                                {deltaValue > 0 && <ProdBadge value={deltaValue} />}
+                                                {isConflicting && <span className="text-lg">🚫</span>}
+                                                {!isConflicting && deltaValue > 0 && <ProdBadge value={deltaValue} />}
                                             </div>
                                             <div className="text-xs opacity-90">Prod: {card.prod} | Roll: {card.roll}</div>
                                         </div>
