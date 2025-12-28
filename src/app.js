@@ -83,7 +83,9 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
     );
 }
 
-function PlayerDetail({ player, onAddCard, showDelta, setShowDelta }) {
+// --- Updated PlayerDetail with editable name ---
+
+function PlayerDetail({ player, onAddCard, onRename, showDelta, setShowDelta }) {
     const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
     const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
@@ -92,9 +94,15 @@ function PlayerDetail({ player, onAddCard, showDelta, setShowDelta }) {
 
     return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-indigo-400">{player.name}</h2>
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <input 
+                    type="text"
+                    value={player.name}
+                    onChange={(e) => onRename(player.id, e.target.value)}
+                    className="bg-slate-900 text-2xl font-bold text-indigo-400 border-b-2 border-transparent focus:border-indigo-500 focus:outline-none px-2 py-1 rounded w-full md:w-auto"
+                    placeholder="Enter player name..."
+                />
+                <div className="flex items-center gap-4 shrink-0">
                     <div className="flex items-center gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
                         <span className="text-[10px] font-semibold text-indigo-300 uppercase">Delta</span>
                         <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
@@ -188,6 +196,10 @@ function App() {
         setPlayers([...players, { id: Date.now(), name: `Player ${players.length + 1}`, cards: {} }]);
     };
 
+    const renamePlayer = (id, newName) => {
+        setPlayers(curr => curr.map(p => p.id === id ? { ...p, name: newName } : p));
+    };
+
     const addCard = (playerId, cardName, darkspaceRoll = null) => {
         setPlayers(curr => curr.map(p => {
             if (p.id !== playerId) return p;
@@ -235,8 +247,8 @@ function App() {
                         <div className="space-y-2">
                             {leaderboard.map((p) => (
                                 <div key={p.id} onClick={() => setSelectedPlayer(p.id)} className={`flex items-center justify-between p-3 rounded cursor-pointer ${selectedPlayer === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}>
-                                    <span className="font-semibold text-sm">{p.name}</span>
-                                    <span className="text-2xl font-bold text-indigo-400">{p.score}</span>
+                                    <span className="font-semibold text-sm truncate">{p.name}</span>
+                                    <span className="text-2xl font-bold text-indigo-400 ml-2">{p.score}</span>
                                 </div>
                             ))}
                         </div>
@@ -249,6 +261,7 @@ function App() {
                     {selectedPlayer ? (
                         <PlayerDetail 
                             player={players.find(p => p.id === selectedPlayer)} 
+                            onRename={renamePlayer}
                             onAddCard={(name) => {
                                 const card = CARD_DATA.get(name);
                                 if (card.roll === "CHOICE") setDarkspaceModal({ playerId: selectedPlayer, cardName: name });
