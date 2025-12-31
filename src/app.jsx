@@ -182,7 +182,7 @@ function App() {
 
     const addPlayer = () => {
         if (players.length >= 8) return;
-        setPlayers([...players, { id: Date.now(), name: `Player ${players.length + 1}`, cards: {} }]);
+        setPlayers([...players, { id: Date.now(), name: `Player ${players.length + 1}`, cards: new Map() }]);
     };
 
     const renamePlayer = (id, newName) => {
