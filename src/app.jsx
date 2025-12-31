@@ -79,7 +79,7 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
     const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
 
-    const cardList = Array.from(CARD_DATA.values());
+    const cardList = Array.from(CARD_DATA.values()).filter(card => !card.culture_clash);
     const occupiedRolls = getNonConflictingRollValues(sync(player.cards));
 
     return (
