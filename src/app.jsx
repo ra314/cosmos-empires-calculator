@@ -43,17 +43,7 @@ const calculateCardContribution = (cardName, rolls, allCards) => {
 
 // Gets all roll values currently claimed by a player (for Darkspace logic)
 const getPlayerRollValues = (player) => {
-    if (!player) return new Set();
-    const values = new Set();
-    Object.entries(player.cards).forEach(([name, rolls]) => {
-        const data = CARD_DATA.get(name);
-        if (data.roll === "CHOICE") {
-            rolls.forEach(r => values.add(r));
-        } else {
-            values.add(data.roll);
-        }
-    });
-    return values;
+    return new Set();
 };
 
 // --- Helper Components ---
