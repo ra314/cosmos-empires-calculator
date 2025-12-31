@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { CARD_DATA } from './data';
-import { calculateScore, calculateProductionForRoll, calcDynProd } from './logic';
+import { calculateScore, calculateProductionForRoll, calcDynProd, getNonConflictingRollValues, getAllRollValues } from './logic';
 
 
 /**
@@ -39,11 +39,6 @@ const calculateCardContribution = (cardName, rolls, allCards) => {
         : calcDynProd(cardName, synced);
     
     return prod * instance.qty;
-};
-
-// Gets all roll values currently claimed by a player (for Darkspace logic)
-const getPlayerRollValues = (player) => {
-    return new Set();
 };
 
 // --- Helper Components ---
@@ -85,7 +80,7 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
 
     const cardList = Array.from(CARD_DATA.values());
-    const occupiedRolls = getPlayerRollValues(player);
+    const occupiedRolls = getNonConflictingRollValues(sync(player.cards));
 
     return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
@@ -338,7 +333,7 @@ function App() {
                 <DarkspaceModal 
                     onSelect={(roll) => addCard(darkspaceModal.playerId, darkspaceModal.cardName, roll)}
                     onClose={() => setDarkspaceModal(null)}
-                    occupied={getPlayerRollValues(players.find(p => p.id === darkspaceModal.playerId))}
+                    occupied={getAllRollValues(sync(players.find(p => p.id === darkspaceModal.playerId).cards))}
                 />
             )}
         </div>

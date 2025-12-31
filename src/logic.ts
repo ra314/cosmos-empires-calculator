@@ -11,6 +11,25 @@ interface PlayerCards {
     cards: Map<CardName, PlayerCardInstance>;
 }
 
+// The roll values selected by darkspace hub
+export function getNonConflictingRollValues(playerCardObj: PlayerCards): Set<DiceRollValue> {
+    return new Set(playerCardObj.cards.get(CardName.DARKSPACE_HUB)?.roll ?? []);
+}
+
+export function getAllRollValues(playerCardObj: PlayerCards): Set<DiceRollValue> {
+    let retval = new Set<DiceRollValue>();
+    for (const instance of playerCardObj.cards.values()) {
+        if (instance.roll !== undefined && instance.roll.length > 0) {
+            instance.roll.forEach(item => retval.add(item));
+        } else {
+            if (typeof instance.data.roll !== "string") {
+                retval.add(instance.data.roll);
+            }
+        }
+    } 
+    return retval;
+}
+
 export function calcDynProd(cardName: CardName, playerCardObj: PlayerCards): number {
     // We use instance.data.name instead of looking up in a Map
     switch (cardName) {
