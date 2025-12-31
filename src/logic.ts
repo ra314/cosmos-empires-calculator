@@ -45,7 +45,7 @@ export function calcDynProd(cardName: CardName, playerCardObj: PlayerCards): num
         // Prod = Number of BIO cards you own (counts itself).
         case CardName.YGGDRASIL: {
             return Array.from(playerCardObj.cards.values())
-                .filter(card => card.data.type === CardType.BIO)
+                .filter(card => card.data.type === CardType.BIO || card.data.type2 === CardType.BIO)
                 .reduce((sum, card) => sum + card.qty, 0);
         }
 
@@ -58,8 +58,45 @@ export function calcDynProd(cardName: CardName, playerCardObj: PlayerCards): num
             return rollValues.size;
         }
 
-        default:
+        // Production is equal to the number of Spirit cards you have.
+        case CardName.DYSON_CAGE: {
+            return Array.from(playerCardObj.cards.values())
+                .filter(card => card.data.type === CardType.SPIRIT || card.data.type2 === CardType.SPIRIT)
+                .reduce((sum, card) => sum + card.qty, 0);
+        }
+
+        // Production is equal to the number of different Mech card names you have.
+        case CardName.WORLD_FORGER: {
+            const uniqueMechNames = new Set(
+                Array.from(playerCardObj.cards.values())
+                    .filter(card => card.data.type === CardType.MECH || card.data.type2 === CardType.MECH)
+                    .map(card => card.data.name)
+            );
+            return uniqueMechNames.size;
+        }
+
+        // Production is equal to the largest production among your cards with a different dice roll value from this card.
+        case CardName.PLANAR_LAYLINE: {
+            // const nonPlanarLaylineProdValues = 
+            //     Array.from(playerCardObj.cards.values())
+            //     .filter(card => card.data.name !== CardName.PLANAR_LAYLINE)
+            //     .map(card => calcDynProd(card.data.name, playerCardObj));
+            // return Math.max(...nonPlanarLaylineProdValues);
             return 0;
+        }
+
+        // Production is equal to the number of different dice roll values you have with bios.
+        case CardName.THOUGHT_CURATOR: {
+            const rollValues = new Set(
+                Array.from(playerCardObj.cards.values())
+                    .filter(card => card.data.type === CardType.BIO || card.data.type2 === CardType.BIO)
+                    .flatMap(card => (card.roll && card.roll.length > 0) ? card.roll : [card.data.roll])
+            );
+            return rollValues.size;
+        }
+
+        default:
+            throw new Error(`calcDynProd: Unexpected card name "${cardName}" does not have dynamic production defined`);
     }
 }
 

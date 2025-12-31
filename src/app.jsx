@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
-import { CARD_DATA } from './data';
+import { CARD_DATA, CardName } from './data';
 import { calculateScore, calculateProductionForRoll, calcDynProd, getNonConflictingRollValues, getAllRollValues } from './logic';
 
 
@@ -333,7 +333,7 @@ function App() {
                 <DarkspaceModal 
                     onSelect={(roll) => addCard(darkspaceModal.playerId, darkspaceModal.cardName, roll)}
                     onClose={() => setDarkspaceModal(null)}
-                    occupied={getAllRollValues(sync(players.find(p => p.id === darkspaceModal.playerId).cards))}
+                    occupied={darkspaceModal.cardName === CardName.DARKSPACE_HUB? getAllRollValues(sync(players.find(p => p.id === darkspaceModal.playerId).cards)) : new Set()}
                 />
             )}
         </div>
