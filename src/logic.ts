@@ -1,6 +1,5 @@
-import { Card, CardName, CardType, CARD_DATA } from './data';
+import { Card, CardName, CardType, DiceRollValue } from './data';
 
-type DiceRollValue = 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 interface PlayerCardInstance {
     readonly data: Card; 
