@@ -17,17 +17,11 @@ export function getNonConflictingRollValues(playerCardObj: PlayerCards): Set<Dic
 }
 
 export function getAllRollValues(playerCardObj: PlayerCards): Set<DiceRollValue> {
-    let retval = new Set<DiceRollValue>();
-    for (const instance of playerCardObj.cards.values()) {
-        if (instance.roll !== undefined && instance.roll.length > 0) {
-            instance.roll.forEach(item => retval.add(item));
-        } else {
-            if (typeof instance.data.roll !== "string") {
-                retval.add(instance.data.roll);
-            }
-        }
-    } 
-    return retval;
+    return new Set(
+        Array.from(playerCardObj.cards.values())
+            .flatMap(instance => (instance.roll && instance.roll.length > 0) ? instance.roll : [instance.data.roll])
+            .filter((roll): roll is DiceRollValue => typeof roll !== "string")
+    );
 }
 
 export function calcDynProd(cardName: CardName, playerCardObj: PlayerCards): number {
