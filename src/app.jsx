@@ -481,7 +481,7 @@ function App() {
                             {scoredPlayers.map(p => (
                                 <div key={p.id} className={`flex justify-between p-2 rounded text-lg ${selectedPlayerId === p.id ? 'bg-indigo-900/40' : 'bg-slate-900/30'}`}>
                                     <span className="truncate mr-2">{p.name}</span>
-                                    <span className="font-bold text-indigo-400">+{getProductionForRoll(p.computed, selectedRoll)}</span>
+                                    <span className="font-bold text-indigo-400">{getProductionForRoll(p.computed, selectedRoll)}</span>
                                 </div>
                             ))}
                         </div>
