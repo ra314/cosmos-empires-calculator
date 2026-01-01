@@ -75,7 +75,7 @@ export class ScoringEngine {
         });
     }
 
-    private static calculateEffectiveTypes(baseCard: Card, tableau: PlayerTableau): Set<CardType> {
+    static calculateEffectiveTypes(baseCard: Card, tableau: PlayerTableau): Set<CardType> {
         const effectiveTypes = new Set<CardType>([baseCard.type]);
         if (baseCard.type2) effectiveTypes.add(baseCard.type2);
 

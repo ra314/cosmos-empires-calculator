@@ -52,7 +52,6 @@ const hasCultureClashCards = (players) => {
 
 // Checks if a specific player has culture clash cards in their tableau
 const playerHasCultureClashCards = (player) => {
-    console.log(player.activeCultureCards);
     return player.tableau.ownedCards.some(pCard => {
         const card = CARD_DATA.get(pCard.cardName);
         return card && card.culture_clash;
@@ -93,23 +92,46 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
 // --- PlayerDetail ---
 
 function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard, onToggleCulture, showDelta, cultureclashEnabled }) {
-    const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
-    const typeGradients = {
-        'BIO-MECH': 'bg-gradient-to-r from-emerald-700 to-sky-700 border-2 border-emerald-500',
-        'BIO-SPIRIT': 'bg-gradient-to-r from-emerald-700 to-violet-700 border-2 border-emerald-500',
-        'MECH-BIO': 'bg-gradient-to-r from-sky-700 to-emerald-700 border-2 border-sky-500',
-        'MECH-SPIRIT': 'bg-gradient-to-r from-sky-700 to-violet-700 border-2 border-sky-500',
-        'SPIRIT-BIO': 'bg-gradient-to-r from-violet-700 to-emerald-700 border-2 border-violet-500',
-        'SPIRIT-MECH': 'bg-gradient-to-r from-violet-700 to-sky-700 border-2 border-violet-500',
-    };
-    const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
-    const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
     
-    const getCardColorClass = (card) => {
-        if (card.type2) {
-            return typeGradients[`${card.type}-${card.type2}`] || typeColors[card.type];
+    // Configuration for base types to colors/icons
+    const typeConfig = { 
+        BIO: { color: 'emerald', icon: '🌿' }, 
+        MECH: { color: 'sky', icon: '⚙️' }, 
+        SPIRIT: { color: 'violet', icon: '✨' } 
+    };
+
+    // Dynamic style generator based on a Set of CardTypes
+    const getCardStyle = (typesSet) => {
+        const types = Array.from(typesSet).sort(); // Sort for consistent gradients
+        const baseType = types[0];
+        const baseColor = typeConfig[baseType]?.color || 'slate';
+
+        // 1 Type
+        if (types.length === 1) {
+            return `bg-${baseColor}-700 border-2 border-${baseColor}-500`;
         }
-        return typeColors[card.type];
+        
+        // 2 Types
+        if (types.length === 2) {
+            const color1 = typeConfig[types[0]]?.color || 'slate';
+            const color2 = typeConfig[types[1]]?.color || 'slate';
+            return `bg-gradient-to-r from-${color1}-700 to-${color2}-700 border-2 border-${color1}-500`;
+        }
+
+        // 3 Types (Max supported per prompt)
+        if (types.length === 3) {
+            const color1 = typeConfig[types[0]]?.color || 'slate';
+            const color2 = typeConfig[types[1]]?.color || 'slate';
+            const color3 = typeConfig[types[2]]?.color || 'slate';
+            return `bg-gradient-to-r from-${color1}-700 via-${color2}-700 to-${color3}-700 border-2 border-${color1}-500`;
+        }
+
+        return 'bg-slate-700 border-2 border-slate-500';
+    };
+
+    const getBadgeStyle = (type) => {
+        const color = typeConfig[type]?.color || 'slate';
+        return `bg-${color}-600 border border-${color}-400`;
     };
 
     const cardList = Array.from(CARD_DATA.values())
@@ -122,12 +144,6 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
     const groupedCards = groupCardsForDisplay(computedCards);
 
     // Determine occupied rolls for Darkspace Hub conflict checking
-    // We look at all computed cards to see what rolls are taken
-    const allRolls = new Set();
-    computedCards.forEach(c => c.effectiveRolls.forEach(r => allRolls.add(r)));
-    
-    // For specific conflict logic (like building a card that conflicts with Darkspace), 
-    // we need to know if we HAVE a Darkspace hub and what it is set to.
     const darkspaceHub = computedCards.find(c => c.name === CardName.DARKSPACE_HUB);
     const darkspaceRoll = darkspaceHub ? Array.from(darkspaceHub.effectiveRolls)[0] : null;
 
@@ -138,16 +154,24 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Your Cards</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Array.from(groupedCards.entries()).map(([name, group]) => {
+                        // Calculate effective types dynamically based on current tableau
+                        const effectiveTypes = ScoringEngine.calculateEffectiveTypes(group.data, player.tableau);
+                        
                         return (
-                            <div key={name} className={`${getCardColorClass(group.data)} p-2 px-3 rounded flex flex-col justify-center`}>
+                            <div key={name} className={`${getCardStyle(effectiveTypes)} p-2 px-3 rounded flex flex-col justify-center`}>
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5 truncate">
+                                        <div className="flex gap-0.5">
+                                             {/* Render small icons for effective types */}
+                                            {Array.from(effectiveTypes).sort().map(t => (
+                                                <span key={t} className="text-xs" title={t}>{typeConfig[t]?.icon}</span>
+                                            ))}
+                                        </div>
                                         <span className="font-bold text-sm truncate">{name}</span>
                                         {group.totalProd > 0 && <ProdBadge value={group.totalProd} />}
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <span className="font-bold text-lg shrink-0">×{group.qty}</span>
-                                        {/* Remove the most recently added instance of this card */}
                                         <button onClick={() => onRemoveCard(player.id, group.computed[group.computed.length-1].instanceId)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded flex items-center justify-center text-xs font-bold shadow-sm shrink-0">−</button>
                                     </div>
                                 </div>
@@ -185,18 +209,18 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Add Cards</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {cardList.map(card => {
+                        // Calculate effective types dynamically to show preview of what the card will be
+                        const effectiveTypes = ScoringEngine.calculateEffectiveTypes(card, player.tableau);
+                        const effectiveTypesArray = Array.from(effectiveTypes).sort();
+
                         let deltaValue = 0;
                         if (showDelta) {
                             const currentScore = getScore(computedCards);
-                            // Simulate adding card
                             const hypoTableau = PlayerManager.addCard(player.tableau, card.name, { selectedRoll: card.roll === "CHOICE" ? 2 : undefined });
                             const hypoComputed = ScoringEngine.calculate(hypoTableau);
                             deltaValue = getScore(hypoComputed) - currentScore;
                         }
 
-                        // Conflict check: 
-                        // 1. If we have a Darkspace Hub, we cannot build a card that matches its roll.
-                        // 2. If this IS a Darkspace Hub, we can't build it if we have cards? (Actually logic says DH matches nothing, handled in modal)
                         let isConflicting = false;
                         if (darkspaceRoll && card.roll !== "CHOICE" && card.roll === darkspaceRoll) {
                             isConflicting = true;
@@ -210,12 +234,14 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                                 className={`${
                                     isConflicting 
                                         ? 'bg-slate-600 opacity-50 cursor-not-allowed' 
-                                        : getCardColorClass(card) + ' hover:brightness-110'
+                                        : getCardStyle(effectiveTypes) + ' hover:brightness-110'
                                 } p-3 rounded text-left transition`}
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-start gap-2">
-                                        <span className="text-2xl">{typeIcons[card.type]}{card.type2 && typeIcons[card.type2]}</span>
+                                        <span className="text-2xl flex flex-col gap-0 leading-none">
+                                            {effectiveTypesArray.map(t => <span key={t}>{typeConfig[t]?.icon}</span>)}
+                                        </span>
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <div className="font-bold text-sm">{card.name}</div>
@@ -225,9 +251,10 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                                             <div className="text-xs opacity-90">Prod: {card.prod} | Roll: {card.roll}</div>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-1">
-                                        <span className={`${typeBadgeStyles[card.type]} px-2 py-1 rounded text-[10px] font-bold`}>{card.type}</span>
-                                        {card.type2 && <span className={`${typeBadgeStyles[card.type2]} px-2 py-1 rounded text-[10px] font-bold`}>{card.type2}</span>}
+                                    <div className="flex flex-col gap-1 items-end">
+                                        {effectiveTypesArray.map(t => (
+                                            <span key={t} className={`${getBadgeStyle(t)} px-2 py-0.5 rounded text-[10px] font-bold`}>{t}</span>
+                                        ))}
                                     </div>
                                 </div>
                             </button>
@@ -346,8 +373,6 @@ function App() {
     }, [selectedPlayerId, scoredPlayers]);
     
     // Determine the occupied rolls for the modal context
-    // If we are adding Darkspace Hub, we need to know all current rolls to disable them.
-    // If we are adding Planar Layline, we can pick anything.
     const getModalOccupiedRolls = () => {
         if (!darkspaceModal) return new Set();
         if (darkspaceModal.cardName === CardName.DARKSPACE_HUB) {
@@ -401,12 +426,9 @@ function App() {
                                 <span className="text-[10px] font-semibold text-indigo-300 uppercase">Culture Clash</span>
                                 <button 
                                     onClick={() => {
-
                                         if (cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash)) return;
                                         setCultureclashEnabled(!cultureclashEnabled);
                                     }}
-
-
                                     disabled={cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash)}
                                     className={`w-10 h-5 rounded-full transition-colors ${cultureclashEnabled ? 'bg-indigo-500' : 'bg-slate-600'} relative ${cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash) ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
                                 >
