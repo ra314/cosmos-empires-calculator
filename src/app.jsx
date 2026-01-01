@@ -94,8 +94,23 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
 
 function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard, onToggleCulture, showDelta, cultureclashEnabled }) {
     const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
+    const typeGradients = {
+        'BIO-MECH': 'bg-gradient-to-r from-emerald-700 to-sky-700 border-2 border-emerald-500',
+        'BIO-SPIRIT': 'bg-gradient-to-r from-emerald-700 to-violet-700 border-2 border-emerald-500',
+        'MECH-BIO': 'bg-gradient-to-r from-sky-700 to-emerald-700 border-2 border-sky-500',
+        'MECH-SPIRIT': 'bg-gradient-to-r from-sky-700 to-violet-700 border-2 border-sky-500',
+        'SPIRIT-BIO': 'bg-gradient-to-r from-violet-700 to-emerald-700 border-2 border-violet-500',
+        'SPIRIT-MECH': 'bg-gradient-to-r from-violet-700 to-sky-700 border-2 border-violet-500',
+    };
     const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
+    
+    const getCardColorClass = (card) => {
+        if (card.type2) {
+            return typeGradients[`${card.type}-${card.type2}`] || typeColors[card.type];
+        }
+        return typeColors[card.type];
+    };
 
     const cardList = Array.from(CARD_DATA.values())
         .filter(card => cultureclashEnabled || !card.culture_clash)
@@ -124,7 +139,7 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Array.from(groupedCards.entries()).map(([name, group]) => {
                         return (
-                            <div key={name} className={`${typeColors[group.data.type]} p-2 px-3 rounded flex flex-col justify-center`}>
+                            <div key={name} className={`${getCardColorClass(group.data)} p-2 px-3 rounded flex flex-col justify-center`}>
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5 truncate">
                                         <span className="font-bold text-sm truncate">{name}</span>
@@ -195,12 +210,12 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                                 className={`${
                                     isConflicting 
                                         ? 'bg-slate-600 opacity-50 cursor-not-allowed' 
-                                        : typeColors[card.type] + ' hover:brightness-110'
+                                        : getCardColorClass(card) + ' hover:brightness-110'
                                 } p-3 rounded text-left transition`}
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-start gap-2">
-                                        <span className="text-2xl">{typeIcons[card.type]}</span>
+                                        <span className="text-2xl">{typeIcons[card.type]}{card.type2 && typeIcons[card.type2]}</span>
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <div className="font-bold text-sm">{card.name}</div>
@@ -210,7 +225,10 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                                             <div className="text-xs opacity-90">Prod: {card.prod} | Roll: {card.roll}</div>
                                         </div>
                                     </div>
-                                    <span className={`${typeBadgeStyles[card.type]} px-2 py-1 rounded text-[10px] font-bold`}>{card.type}</span>
+                                    <div className="flex flex-col gap-1">
+                                        <span className={`${typeBadgeStyles[card.type]} px-2 py-1 rounded text-[10px] font-bold`}>{card.type}</span>
+                                        {card.type2 && <span className={`${typeBadgeStyles[card.type2]} px-2 py-1 rounded text-[10px] font-bold`}>{card.type2}</span>}
+                                    </div>
                                 </div>
                             </button>
                         );
