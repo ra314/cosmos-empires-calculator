@@ -1,54 +1,62 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
-import { CARD_DATA, CardName } from './data';
-import { calculateScore, calculateProductionForRoll, calcDynProd, getNonConflictingRollValues, getAllRollValues } from './logic';
-
+import { CARD_DATA, CardName, CardType, CULTURE_CARD_DATA } from './data';
+import { ScoringEngine, PlayerManager } from './scoring_engine';
 
 /**
  * Cosmos Empires - UI Controller
  */
-// --- Helpers to bridge UI State to Logic.js ---
 
-// Converts UI state { "CardName": [rolls] } to the Map structure logic.js expects
-const sync = (playerCardState) => {
-    const cardsMap = new Map();
+// --- Helpers ---
+
+// Groups computed cards by name for the "Stack" view in the UI
+// Returns: { [CardName]: { data: Card, computed: ComputedCard[], qty: number, totalProd: number } }
+const groupCardsForDisplay = (computedCards) => {
+    const groups = new Map();
     
-    Object.entries(playerCardState).forEach(([name, rolls]) => {
-        const data = CARD_DATA.get(name);
-        if (data) {
-            cardsMap.set(name, {
-                data: data,
-                qty: rolls.length,
-                roll: data.roll === "CHOICE" ? rolls : []
+    computedCards.forEach(card => {
+        if (!groups.has(card.name)) {
+            groups.set(card.name, {
+                data: CARD_DATA.get(card.name),
+                computed: [],
+                qty: 0,
+                totalProd: 0
             });
         }
+        const group = groups.get(card.name);
+        group.computed.push(card);
+        group.qty += 1;
+        group.totalProd += card.currentProduction;
     });
 
-    return { cards: cardsMap };
+    return groups;
 };
 
-// Calculates the contribution of a single card type for the UI badges
-const calculateCardContribution = (cardName, rolls, allCards) => {
-    const synced = sync(allCards);
-    const instance = synced.cards.get(cardName);
-    if (!instance) return 0;
-    
-    // This replicates the logic.js calculation for a single card type
-    const prod = (typeof instance.data.prod === 'number') 
-        ? instance.data.prod 
-        : calcDynProd(cardName, synced);
-    
-    return prod * instance.qty;
+// Calculates total score from the engine result
+const getScore = (computedCards) => {
+    return computedCards.reduce((acc, card) => acc + card.currentProduction, 0);
 };
 
-// Checks if any player has culture clash cards
+// Calculates production for a specific roll (2-8) based on engine result
+const getProductionForRoll = (computedCards, roll) => {
+    return computedCards.reduce((acc, card) => {
+        const hits = card.effectiveRolls.has(roll);
+        return acc + (hits ? card.currentProduction : 0);
+    }, 0);
+};
+
+// Checks if any player has culture clash cards in their tableau
 const hasCultureClashCards = (players) => {
-    return players.some(player => {
-        return Object.keys(player.cards).some(cardName => {
-            const card = CARD_DATA.get(cardName);
-            return card && card.culture_clash;
-        });
-    });
+    return players.some(player => playerHasCultureClashCards(player));
+};
+
+// Checks if a specific player has culture clash cards in their tableau
+const playerHasCultureClashCards = (player) => {
+    console.log(player.activeCultureCards);
+    return player.tableau.ownedCards.some(pCard => {
+        const card = CARD_DATA.get(pCard.cardName);
+        return card && card.culture_clash;
+    }) || (player.activeCultureCards && player.activeCultureCards.size > 0);
 };
 
 // --- Helper Components ---
@@ -82,15 +90,31 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
     );
 }
 
-// --- Updated PlayerDetail with editable name ---
+// --- PlayerDetail ---
 
-function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, setShowDelta, cultureclashEnabled }) {
+function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard, onToggleCulture, showDelta, cultureclashEnabled }) {
     const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
     const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
 
-    const cardList = Array.from(CARD_DATA.values()).filter(card => cultureclashEnabled || !card.culture_clash).sort((a, b) => a.name.localeCompare(b.name));
-    const occupiedRolls = getNonConflictingRollValues(sync(player.cards));
+    const cardList = Array.from(CARD_DATA.values())
+        .filter(card => cultureclashEnabled || !card.culture_clash)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    
+    const cultureList = Array.from(CULTURE_CARD_DATA.values())
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    const groupedCards = groupCardsForDisplay(computedCards);
+
+    // Determine occupied rolls for Darkspace Hub conflict checking
+    // We look at all computed cards to see what rolls are taken
+    const allRolls = new Set();
+    computedCards.forEach(c => c.effectiveRolls.forEach(r => allRolls.add(r)));
+    
+    // For specific conflict logic (like building a card that conflicts with Darkspace), 
+    // we need to know if we HAVE a Darkspace hub and what it is set to.
+    const darkspaceHub = computedCards.find(c => c.name === CardName.DARKSPACE_HUB);
+    const darkspaceRoll = darkspaceHub ? Array.from(darkspaceHub.effectiveRolls)[0] : null;
 
     return (
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
@@ -98,19 +122,18 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
             <div className="mb-10">
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Your Cards</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {Object.entries(player.cards).map(([name, rolls]) => {
-                        const card = CARD_DATA.get(name);
-                        const contribution = calculateCardContribution(name, rolls, player.cards);
+                    {Array.from(groupedCards.entries()).map(([name, group]) => {
                         return (
-                            <div key={name} className={`${typeColors[card.type]} p-2 px-3 rounded flex flex-col justify-center`}>
+                            <div key={name} className={`${typeColors[group.data.type]} p-2 px-3 rounded flex flex-col justify-center`}>
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5 truncate">
                                         <span className="font-bold text-sm truncate">{name}</span>
-                                        {contribution > 0 && <ProdBadge value={contribution} />}
+                                        {group.totalProd > 0 && <ProdBadge value={group.totalProd} />}
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <span className="font-bold text-lg shrink-0">×{rolls.length}</span>
-                                        <button onClick={() => onRemoveCard(player.id, name)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded flex items-center justify-center text-xs font-bold shadow-sm shrink-0">−</button>
+                                        <span className="font-bold text-lg shrink-0">×{group.qty}</span>
+                                        {/* Remove the most recently added instance of this card */}
+                                        <button onClick={() => onRemoveCard(player.id, group.computed[group.computed.length-1].instanceId)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded flex items-center justify-center text-xs font-bold shadow-sm shrink-0">−</button>
                                     </div>
                                 </div>
                             </div>
@@ -119,21 +142,50 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
                 </div>
             </div>
 
+            {cultureclashEnabled && (
+                <div className="mb-10">
+                    <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Active Culture Cards</h3>
+                    <div className="flex flex-wrap gap-2">
+                        {cultureList.map(cc => {
+                            const isActive = player.tableau.activeCultureCards.has(cc.name);
+                            return (
+                                <button
+                                    key={cc.name}
+                                    onClick={() => onToggleCulture(player.id, cc.name)}
+                                    className={`px-3 py-1.5 rounded text-xs font-bold transition-colors border ${
+                                        isActive 
+                                        ? 'bg-amber-600 border-amber-400 text-white' 
+                                        : 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-slate-600'
+                                    }`}
+                                >
+                                    {cc.name}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+
             <div>
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Add Cards</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {cardList.map(card => {
                         let deltaValue = 0;
                         if (showDelta) {
-                            const currentScore = calculateScore(sync(player.cards));
-                            const hypoCards = JSON.parse(JSON.stringify(player.cards));
-                            if (!hypoCards[card.name]) hypoCards[card.name] = [];
-                            hypoCards[card.name].push(card.roll === "CHOICE" ? 0 : card.roll);
-                            deltaValue = calculateScore(sync(hypoCards)) - currentScore;
+                            const currentScore = getScore(computedCards);
+                            // Simulate adding card
+                            const hypoTableau = PlayerManager.addCard(player.tableau, card.name, { selectedRoll: card.roll === "CHOICE" ? 2 : undefined });
+                            const hypoComputed = ScoringEngine.calculate(hypoTableau);
+                            deltaValue = getScore(hypoComputed) - currentScore;
                         }
 
-                        // Check if this card's roll value conflicts with occupied rolls
-                        const isConflicting = card.roll !== "CHOICE" && occupiedRolls.has(card.roll);
+                        // Conflict check: 
+                        // 1. If we have a Darkspace Hub, we cannot build a card that matches its roll.
+                        // 2. If this IS a Darkspace Hub, we can't build it if we have cards? (Actually logic says DH matches nothing, handled in modal)
+                        let isConflicting = false;
+                        if (darkspaceRoll && card.roll !== "CHOICE" && card.roll === darkspaceRoll) {
+                            isConflicting = true;
+                        }
 
                         return (
                             <button 
@@ -173,119 +225,144 @@ function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, se
 
 function App() {
     const [players, setPlayers] = useState([]);
-    const [selectedPlayer, setSelectedPlayer] = useState(null);
+    const [selectedPlayerId, setSelectedPlayerId] = useState(null);
     const [darkspaceModal, setDarkspaceModal] = useState(null);
     const [selectedRoll, setSelectedRoll] = useState(2);
-    const [undoAction, setUndoAction] = useState(null);
+    // Undo stack: Array of full player states (snapshot based)
+    const [history, setHistory] = useState([]);
     const [showDelta, setShowDelta] = useState(true);
     const [cultureclashEnabled, setCultureclashEnabled] = useState(false);
 
+    // Helper to update state with history
+    const updatePlayers = (newPlayers) => {
+        setHistory(prev => [...prev.slice(-20), players]); // Keep last 20
+        setPlayers(newPlayers);
+    };
+
+    const handleUndo = () => {
+        if (history.length === 0) return;
+        const previous = history[history.length - 1];
+        setPlayers(previous);
+        setHistory(prev => prev.slice(0, -1));
+    };
+
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && undoAction) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
                 handleUndo();
                 e.preventDefault();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undoAction]);
+    }, [history]);
 
     const addPlayer = () => {
         if (players.length >= 8) return;
-        setPlayers([...players, { id: Date.now(), name: `Player ${players.length + 1}`, cards: new Map() }]);
+        const newPlayer = { 
+            id: Date.now(), 
+            name: `Player ${players.length + 1}`, 
+            tableau: PlayerManager.createTableau() 
+        };
+        updatePlayers([...players, newPlayer]);
+        if (!selectedPlayerId) setSelectedPlayerId(newPlayer.id);
     };
 
     const renamePlayer = (id, newName) => {
         setPlayers(curr => curr.map(p => p.id === id ? { ...p, name: newName } : p));
     };
 
-    const addCard = (playerId, cardName, darkspaceRoll = null) => {
-        setPlayers(curr => curr.map(p => {
-            if (p.id !== playerId) return p;
-            const newCards = { ...p.cards };
-            if (!newCards[cardName]) newCards[cardName] = [];
-            newCards[cardName].push(darkspaceRoll);
-            return { ...p, cards: newCards };
-        }));
-        setUndoAction({ action: "add", playerId, cardName });
+    const addCard = (playerId, cardName, choices = {}) => {
+        const playerIndex = players.findIndex(p => p.id === playerId);
+        if (playerIndex === -1) return;
+        
+        const player = players[playerIndex];
+        const newTableau = PlayerManager.addCard(player.tableau, cardName, choices);
+        
+        const newPlayers = [...players];
+        newPlayers[playerIndex] = { ...player, tableau: newTableau };
+        updatePlayers(newPlayers);
         setDarkspaceModal(null);
     };
 
-    const removeCard = (playerId, cardName) => {
-        setPlayers(curr => curr.map(p => {
-            if (p.id !== playerId) return p;
-            const newCards = { ...p.cards };
-            if (newCards[cardName]) {
-                newCards[cardName].pop(); // Remove the last card instance
-                if (newCards[cardName].length === 0) {
-                    delete newCards[cardName]; // Remove the card if no instances left
-                }
-            }
-            return { ...p, cards: newCards };
-        }));
-        setUndoAction({ action: "remove", playerId, cardName });
+    const removeCard = (playerId, instanceId) => {
+        const playerIndex = players.findIndex(p => p.id === playerId);
+        if (playerIndex === -1) return;
+
+        const player = players[playerIndex];
+        const newTableau = PlayerManager.removeCard(player.tableau, instanceId);
+
+        const newPlayers = [...players];
+        newPlayers[playerIndex] = { ...player, tableau: newTableau };
+        updatePlayers(newPlayers);
     };
 
-    const handleUndo = () => {
-        if (!undoAction) return;
-        const { action, playerId, cardName } = undoAction;
-        setPlayers(curr => curr.map(p => {
-            if (p.id !== playerId) return p;
-            const newCards = { ...p.cards };
-            if (action === "add" && newCards[cardName]) {
-                newCards[cardName].pop();
-                if (newCards[cardName].length === 0) delete newCards[cardName];
-            } else if (action === "remove") {
-                if (!newCards[cardName]) newCards[cardName] = [];
-                newCards[cardName].push(CARD_DATA.get(cardName).roll === "CHOICE" ? 0 : CARD_DATA.get(cardName).roll);
-            }
-            return { ...p, cards: newCards };
-        }));
-        setUndoAction(null);
+    const toggleCulture = (playerId, cultureCardName) => {
+        const playerIndex = players.findIndex(p => p.id === playerId);
+        if (playerIndex === -1) return;
+
+        const player = players[playerIndex];
+        const newTableau = PlayerManager.toggleCulture(player.tableau, cultureCardName);
+
+        const newPlayers = [...players];
+        newPlayers[playerIndex] = { ...player, tableau: newTableau };
+        updatePlayers(newPlayers);
     };
 
-    const leaderboard = useMemo(() => {
-        return players
-            .map(p => ({ ...p, score: calculateScore(sync(p.cards)) }))
-            .sort((a, b) => b.score - a.score);
+    // Calculate all scores derived from state
+    const scoredPlayers = useMemo(() => {
+        return players.map(p => {
+            const computed = ScoringEngine.calculate(p.tableau);
+            return {
+                ...p,
+                computed,
+                score: getScore(computed)
+            };
+        }).sort((a, b) => b.score - a.score);
     }, [players]);
 
     const hasCultureClash = useMemo(() => hasCultureClashCards(players), [players]);
+    const selectedPlayerHasCultureClash = useMemo(() => {
+        const selected = scoredPlayers.find(p => p.id === selectedPlayerId);
+        return selected ? playerHasCultureClashCards(selected) : false;
+    }, [selectedPlayerId, scoredPlayers]);
+    
+    // Determine the occupied rolls for the modal context
+    // If we are adding Darkspace Hub, we need to know all current rolls to disable them.
+    // If we are adding Planar Layline, we can pick anything.
+    const getModalOccupiedRolls = () => {
+        if (!darkspaceModal) return new Set();
+        if (darkspaceModal.cardName === CardName.DARKSPACE_HUB) {
+            const p = scoredPlayers.find(p => p.id === darkspaceModal.playerId);
+            if (!p) return new Set();
+            const rolls = new Set();
+            p.computed.forEach(c => c.effectiveRolls.forEach(r => rolls.add(r)));
+            return rolls;
+        }
+        return new Set();
+    };
 
     return (
         <div className="min-h-screen p-4">
-                    <div className="flex justify-center items-center mb-8 gap-8">
-                        <div className="text-center">
-                <h1 className="text-5xl font-bold text-indigo-400 mb-2">COSMOS EMPIRES</h1>
-                <p className="text-slate-400">Score Tracker</p>
-                        </div>
-                        <a
-                            href="https://github.com/ra314/cosmos-empires-calculator"
-                            target="_blank"
-                    rel="noopener noreferrer" 
-                            className="github-link flex items-center gap-2 text-indigo-500 hover:text-indigo-400 transition"
-                            title="View on GitHub"
-                        >
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                            </svg>
-                            <span className="text-sm">GitHub</span>
-                        </a>
-                    </div>
+            <div className="flex justify-center items-center mb-8 gap-8">
+                <div className="text-center">
+                    <h1 className="text-5xl font-bold text-indigo-400 mb-2">COSMOS EMPIRES</h1>
+                    <p className="text-slate-400">Score Tracker</p>
+                </div>
+            </div>
 
             <div className="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-6 gap-6">
                 <div className="lg:col-span-1">
                     <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
-                                <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
+                        <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
                         <div className="space-y-2">
-                            {leaderboard.map((p) => (
-                                <div key={p.id} className={`flex items-center gap-2 p-3 rounded ${selectedPlayer === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}>
+                            {scoredPlayers.map((p) => (
+                                <div key={p.id} className={`flex items-center gap-2 p-3 rounded ${selectedPlayerId === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}>
                                     <input
                                         type="text"
                                         value={p.name}
                                         onChange={(e) => renamePlayer(p.id, e.target.value)}
-                                        onClick={() => setSelectedPlayer(p.id)}
+                                        onClick={() => setSelectedPlayerId(p.id)}
                                         className="bg-transparent font-semibold text-lg truncate min-w-0 flex-1 border-b border-transparent hover:border-indigo-300 focus:border-indigo-400 focus:outline-none text-white"
                                     />
                                     <span className="text-lg font-bold text-indigo-400 shrink-0">{p.score}</span>
@@ -293,46 +370,58 @@ function App() {
                             ))}
                         </div>
                         <button onClick={addPlayer} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded">Add Player</button>
-                        <button onClick={handleUndo} disabled={!undoAction} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${!undoAction && 'opacity-30'}`}>Undo</button>
+                        <button onClick={handleUndo} disabled={history.length === 0} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${history.length === 0 && 'opacity-30'}`}>Undo</button>
+                        
                         <div className="space-y-2 mt-4">
-                            <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
+                             <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
                                 <span className="text-[10px] font-semibold text-indigo-300 uppercase">Delta</span>
                                 <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
                                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showDelta ? 'left-5' : 'left-1'}`} />
                                 </button>
                             </div>
-                            <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
+                            <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700 group relative">
                                 <span className="text-[10px] font-semibold text-indigo-300 uppercase">Culture Clash</span>
                                 <button 
                                     onClick={() => {
-                                        // Only allow turning OFF if no culture clash cards are present
-                                        if (cultureclashEnabled && hasCultureClash) return;
+
+                                        if (cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash)) return;
                                         setCultureclashEnabled(!cultureclashEnabled);
                                     }}
-                                    disabled={cultureclashEnabled && hasCultureClash}
-                                    className={`w-10 h-5 rounded-full transition-colors ${cultureclashEnabled ? 'bg-indigo-500' : 'bg-slate-600'} relative ${cultureclashEnabled && hasCultureClash ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
-                                    title={cultureclashEnabled && hasCultureClash ? 'Cannot disable Culture Clash while Culture Clash cards are in use' : 'Toggle Culture Clash expansion'}
+
+
+                                    disabled={cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash)}
+                                    className={`w-10 h-5 rounded-full transition-colors ${cultureclashEnabled ? 'bg-indigo-500' : 'bg-slate-600'} relative ${cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash) ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
                                 >
                                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cultureclashEnabled ? 'left-5' : 'left-1'}`} />
                                 </button>
+
+                                {cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash) && (
+                                    <div className="absolute bottom-full right-0 mb-2 bg-slate-900 border border-red-500 rounded px-2 py-1 text-xs text-red-300 whitespace-nowrap z-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                        Remove all culture clash cards to disable.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div className="lg:col-span-4">
-                    {selectedPlayer ? (
+                    {selectedPlayerId ? (
                         <PlayerDetail 
-                            player={players.find(p => p.id === selectedPlayer)} 
+                            player={scoredPlayers.find(p => p.id === selectedPlayerId)} 
+                            computedCards={scoredPlayers.find(p => p.id === selectedPlayerId).computed}
                             onRename={renamePlayer}
                             onAddCard={(name) => {
                                 const card = CARD_DATA.get(name);
-                                if (card.roll === "CHOICE") setDarkspaceModal({ playerId: selectedPlayer, cardName: name });
-                                else addCard(selectedPlayer, name, card.roll);
+                                if (card.roll === "CHOICE") {
+                                    setDarkspaceModal({ playerId: selectedPlayerId, cardName: name });
+                                } else {
+                                    addCard(selectedPlayerId, name);
+                                }
                             }}
                             onRemoveCard={removeCard}
+                            onToggleCulture={toggleCulture}
                             showDelta={showDelta}
-                            setShowDelta={setShowDelta}
                             cultureclashEnabled={cultureclashEnabled}
                         />
                     ) : (
@@ -349,10 +438,10 @@ function App() {
                             ))}
                         </div>
                         <div className="space-y-2">
-                            {players.map(p => (
-                                <div key={p.id} className={`flex justify-between p-2 rounded text-lg ${selectedPlayer === p.id ? 'bg-indigo-900/40' : 'bg-slate-900/30'}`}>
+                            {scoredPlayers.map(p => (
+                                <div key={p.id} className={`flex justify-between p-2 rounded text-lg ${selectedPlayerId === p.id ? 'bg-indigo-900/40' : 'bg-slate-900/30'}`}>
                                     <span className="truncate mr-2">{p.name}</span>
-                                    <span className="font-bold text-indigo-400">+{calculateProductionForRoll(sync(p.cards), selectedRoll)}</span>
+                                    <span className="font-bold text-indigo-400">+{getProductionForRoll(p.computed, selectedRoll)}</span>
                                 </div>
                             ))}
                         </div>
@@ -362,9 +451,9 @@ function App() {
 
             {darkspaceModal && (
                 <DarkspaceModal 
-                    onSelect={(roll) => addCard(darkspaceModal.playerId, darkspaceModal.cardName, roll)}
+                    onSelect={(roll) => addCard(darkspaceModal.playerId, darkspaceModal.cardName, { selectedRoll: roll })}
                     onClose={() => setDarkspaceModal(null)}
-                    occupied={darkspaceModal.cardName === CardName.DARKSPACE_HUB? getAllRollValues(sync(players.find(p => p.id === darkspaceModal.playerId).cards)) : new Set()}
+                    occupied={getModalOccupiedRolls()}
                 />
             )}
         </div>

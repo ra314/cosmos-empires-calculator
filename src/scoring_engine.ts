@@ -57,7 +57,10 @@ export class ScoringEngine {
 
     private static initializeComputedCards(tableau: PlayerTableau): ComputedCard[] {
         return tableau.ownedCards.map(pCard => {
-            const baseCard = CARD_DATA.get(pCard.cardName)!;
+            const baseCard = CARD_DATA.get(pCard.cardName);
+            if (!baseCard) {
+                throw new Error(`Card data not found for card name: ${pCard.cardName}`);
+            }
             const effectiveTypes = this.calculateEffectiveTypes(baseCard, tableau);
             let rolls = this.rollValue(baseCard, pCard);
 
@@ -220,55 +223,53 @@ export class ScoringEngine {
                 const bioRolls = new Set(all.filter(c => c.effectiveTypes.has(CardType.BIO)).flatMap(c => c.effectiveRolls));
                 return bioRolls.size;
 
-            default:
+            case CardName.PLANAR_LAYLINE:
                 return 0;
+
+            default:
+                throw new Error(`Unhandled dynamic card type: ${card.name}`);
         }
     }
 }
 
 /**
- * Utility class to manage player state mutations
+ * Utility class to manage player state mutations IMMUTABLY.
+ * Used by React state dispatchers.
  */
 export class PlayerManager {
-    private state: PlayerTableau;
-
-    constructor(initialState?: PlayerTableau) {
-        this.state = initialState || { ownedCards: [], activeCultureCards: new Set() };
+    static createTableau(): PlayerTableau {
+        return { ownedCards: [], activeCultureCards: new Set() };
     }
 
-    addCard(name: CardName, choices?: CardChoice) {
-        this.state.ownedCards.push({
+    static addCard(tableau: PlayerTableau, name: CardName, choices: CardChoice = {}): PlayerTableau {
+        const newCard: PlayerCard = {
             instanceId: crypto.randomUUID(),
             cardName: name,
             choices
-        });
+        };
+        return {
+            ...tableau,
+            ownedCards: [...tableau.ownedCards, newCard]
+        };
     }
 
-    removeCard(instanceId: string) {
-        this.state.ownedCards = this.state.ownedCards.filter(c => c.instanceId !== instanceId);
+    static removeCard(tableau: PlayerTableau, instanceId: string): PlayerTableau {
+        return {
+            ...tableau,
+            ownedCards: tableau.ownedCards.filter(c => c.instanceId !== instanceId)
+        };
     }
 
-    updateChoice(instanceId: string, choices: Partial<CardChoice>) {
-        const card = this.state.ownedCards.find(c => c.instanceId === instanceId);
-        if (card) {
-            card.choices = { ...card.choices, ...choices };
-        }
-    }
-
-    toggleCulture(name: CultureCardName) {
-        if (this.state.activeCultureCards.has(name)) {
-            this.state.activeCultureCards.delete(name);
+    static toggleCulture(tableau: PlayerTableau, name: CultureCardName): PlayerTableau {
+        const newSet = new Set(tableau.activeCultureCards);
+        if (newSet.has(name)) {
+            newSet.delete(name);
         } else {
-            this.state.activeCultureCards.add(name);
+            newSet.add(name);
         }
-    }
-
-    getState() {
-        return this.state;
-    }
-
-    getTotalProduction(): number {
-        const computed = ScoringEngine.calculate(this.state);
-        return computed.reduce((sum, card) => sum + card.currentProduction, 0);
+        return {
+            ...tableau,
+            activeCultureCards: newSet
+        };
     }
 }

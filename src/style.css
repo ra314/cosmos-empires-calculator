@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: #0f172a; }
@@ -14,7 +18,20 @@
     animation: pulse-emerald 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Card Type Specifics */
+/* Card Type Specifics - Enhanced for Visibility */
 .type-bio { background: #065f46; border: 2px solid #10b981; }
 .type-mech { background: #075985; border: 2px solid #0ea5e9; }
 .type-spirit { background: #5b21b6; border: 2px solid #8b5cf6; }
+
+/* Culture Card Toggles */
+.culture-active {
+    background-color: #d97706; /* amber-600 */
+    border-color: #fbbf24; /* amber-400 */
+    color: white;
+}
+
+.culture-inactive {
+    background-color: #334155; /* slate-700 */
+    border-color: #475569; /* slate-600 */
+    color: #94a3b8; /* slate-400 */
+}
