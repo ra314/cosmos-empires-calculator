@@ -141,6 +141,15 @@ export class ScoringEngine {
                 if (sharesRollWithSpirit) bonus += 1;
             }
 
+            // AUTONOMOUS
+            if (tableau.activeCultureCards.has(CultureCardName.AUTONOMOUS)) {
+                const sharesRoll = cards.some(other => 
+                    other.instanceId !== card.instanceId && 
+                    other.effectiveRolls.intersection(card.effectiveRolls).size > 0
+                );
+                if (!sharesRoll) bonus += 1;
+            }
+
             card.currentProduction += bonus;
         });
 
