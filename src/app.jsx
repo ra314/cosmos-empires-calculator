@@ -10,7 +10,6 @@ import { ScoringEngine, PlayerManager } from './scoring_engine';
 // --- Helpers ---
 
 // Groups computed cards by name for the "Stack" view in the UI
-// Returns: { [CardName]: { data: Card, computed: ComputedCard[], qty: number, totalProd: number } }
 const groupCardsForDisplay = (computedCards) => {
     const groups = new Map();
     
@@ -32,12 +31,10 @@ const groupCardsForDisplay = (computedCards) => {
     return groups;
 };
 
-// Calculates total score from the engine result
 const getScore = (computedCards) => {
     return computedCards.reduce((acc, card) => acc + card.currentProduction, 0);
 };
 
-// Calculates production for a specific roll (2-8) based on engine result
 const getProductionForRoll = (computedCards, roll) => {
     return computedCards.reduce((acc, card) => {
         const hits = card.effectiveRolls.has(roll);
@@ -45,17 +42,21 @@ const getProductionForRoll = (computedCards, roll) => {
     }, 0);
 };
 
-// Checks if any player has culture clash cards in their tableau
-const hasCultureClashCards = (players) => {
-    return players.some(player => playerHasCultureClashCards(player));
-};
+/**
+ * Simplified Check:
+ * Returns true if ANY player has ANY expansion content (Culture Clash cards OR active Culture Cards).
+ */
+const isExpansionInUse = (players) => {
+    return players.some(player => {
+        // Check 1: Do they have any active Culture Cards (e.g. Dictatorship)?
+        if (player.tableau.activeCultureCards.size > 0) return true;
 
-// Checks if a specific player has culture clash cards in their tableau
-const playerHasCultureClashCards = (player) => {
-    return player.tableau.ownedCards.some(pCard => {
-        const card = CARD_DATA.get(pCard.cardName);
-        return card && card.culture_clash;
-    }) || (player.activeCultureCards && player.activeCultureCards.size > 0);
+        // Check 2: Do they have any cards marked culture_clash=true?
+        return player.tableau.ownedCards.some(pCard => {
+            const cardData = CARD_DATA.get(pCard.cardName);
+            return cardData && cardData.culture_clash;
+        });
+    });
 };
 
 // --- Helper Components ---
@@ -91,41 +92,32 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
 
 // --- PlayerDetail ---
 
-function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard, onToggleCulture, showDelta, cultureclashEnabled }) {
+function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard, onToggleCulture, showDelta, cultureClashEnabled }) {
     
-    // Configuration for base types to colors/icons
     const typeConfig = { 
         BIO: { color: 'emerald', icon: '🌿' }, 
         MECH: { color: 'sky', icon: '⚙️' }, 
         SPIRIT: { color: 'violet', icon: '✨' } 
     };
 
-    // Dynamic style generator based on a Set of CardTypes
     const getCardStyle = (typesSet) => {
-        const types = Array.from(typesSet).sort(); // Sort for consistent gradients
-        const baseType = types[0];
-        const baseColor = typeConfig[baseType]?.color || 'slate';
+        const types = Array.from(typesSet).sort();
+        const baseColor = typeConfig[types[0]]?.color || 'slate';
 
-        // 1 Type
-        if (types.length === 1) {
-            return `bg-${baseColor}-700 border-2 border-${baseColor}-500`;
-        }
+        if (types.length === 1) return `bg-${baseColor}-700 border-2 border-${baseColor}-500`;
         
-        // 2 Types
         if (types.length === 2) {
-            const color1 = typeConfig[types[0]]?.color || 'slate';
-            const color2 = typeConfig[types[1]]?.color || 'slate';
-            return `bg-gradient-to-r from-${color1}-700 to-${color2}-700 border-2 border-${color1}-500`;
+            const c1 = typeConfig[types[0]]?.color || 'slate';
+            const c2 = typeConfig[types[1]]?.color || 'slate';
+            return `bg-gradient-to-r from-${c1}-700 to-${c2}-700 border-2 border-${c1}-500`;
         }
 
-        // 3 Types (Max supported per prompt)
         if (types.length === 3) {
-            const color1 = typeConfig[types[0]]?.color || 'slate';
-            const color2 = typeConfig[types[1]]?.color || 'slate';
-            const color3 = typeConfig[types[2]]?.color || 'slate';
-            return `bg-gradient-to-r from-${color1}-700 via-${color2}-700 to-${color3}-700 border-2 border-${color1}-500`;
+            const c1 = typeConfig[types[0]]?.color || 'slate';
+            const c2 = typeConfig[types[1]]?.color || 'slate';
+            const c3 = typeConfig[types[2]]?.color || 'slate';
+            return `bg-gradient-to-r from-${c1}-700 via-${c2}-700 to-${c3}-700 border-2 border-${c1}-500`;
         }
-
         return 'bg-slate-700 border-2 border-slate-500';
     };
 
@@ -134,8 +126,9 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
         return `bg-${color}-600 border border-${color}-400`;
     };
 
+    // Filter available cards based on expansion toggle
     const cardList = Array.from(CARD_DATA.values())
-        .filter(card => cultureclashEnabled || !card.culture_clash)
+        .filter(card => cultureClashEnabled || !card.culture_clash)
         .sort((a, b) => a.name.localeCompare(b.name));
     
     const cultureList = Array.from(CULTURE_CARD_DATA.values())
@@ -143,7 +136,7 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
 
     const groupedCards = groupCardsForDisplay(computedCards);
 
-    // Determine occupied rolls for Darkspace Hub conflict checking
+    // Determine occupied rolls for Darkspace Hub
     const darkspaceHub = computedCards.find(c => c.name === CardName.DARKSPACE_HUB);
     const darkspaceRoll = darkspaceHub ? Array.from(darkspaceHub.effectiveRolls)[0] : null;
 
@@ -154,15 +147,12 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Your Cards</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Array.from(groupedCards.entries()).map(([name, group]) => {
-                        // Calculate effective types dynamically based on current tableau
                         const effectiveTypes = ScoringEngine.calculateEffectiveTypes(group.data, player.tableau);
-                        
                         return (
                             <div key={name} className={`${getCardStyle(effectiveTypes)} p-2 px-3 rounded flex flex-col justify-center`}>
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5 truncate">
                                         <div className="flex gap-0.5">
-                                             {/* Render small icons for effective types */}
                                             {Array.from(effectiveTypes).sort().map(t => (
                                                 <span key={t} className="text-xs" title={t}>{typeConfig[t]?.icon}</span>
                                             ))}
@@ -181,7 +171,7 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                 </div>
             </div>
 
-            {cultureclashEnabled && (
+            {cultureClashEnabled && (
                 <div className="mb-10">
                     <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Active Culture Cards</h3>
                     <div className="flex flex-wrap gap-2">
@@ -209,7 +199,6 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Add Cards</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {cardList.map(card => {
-                        // Calculate effective types dynamically to show preview of what the card will be
                         const effectiveTypes = ScoringEngine.calculateEffectiveTypes(card, player.tableau);
                         const effectiveTypesArray = Array.from(effectiveTypes).sort();
 
@@ -273,14 +262,15 @@ function App() {
     const [selectedPlayerId, setSelectedPlayerId] = useState(null);
     const [darkspaceModal, setDarkspaceModal] = useState(null);
     const [selectedRoll, setSelectedRoll] = useState(2);
-    // Undo stack: Array of full player states (snapshot based)
     const [history, setHistory] = useState([]);
     const [showDelta, setShowDelta] = useState(true);
-    const [cultureclashEnabled, setCultureclashEnabled] = useState(false);
+    
+    // Toggle State
+    const [cultureClashEnabled, setCultureClashEnabled] = useState(false);
 
-    // Helper to update state with history
+    // Helpers
     const updatePlayers = (newPlayers) => {
-        setHistory(prev => [...prev.slice(-20), players]); // Keep last 20
+        setHistory(prev => [...prev.slice(-20), players]);
         setPlayers(newPlayers);
     };
 
@@ -291,6 +281,7 @@ function App() {
         setHistory(prev => prev.slice(0, -1));
     };
 
+    // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -302,6 +293,7 @@ function App() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [history]);
 
+    // Action Handlers
     const addPlayer = () => {
         if (players.length >= 8) return;
         const newPlayer = { 
@@ -354,25 +346,27 @@ function App() {
         updatePlayers(newPlayers);
     };
 
-    // Calculate all scores derived from state
+    // Derived State
     const scoredPlayers = useMemo(() => {
         return players.map(p => {
             const computed = ScoringEngine.calculate(p.tableau);
-            return {
-                ...p,
-                computed,
-                score: getScore(computed)
-            };
+            return { ...p, computed, score: getScore(computed) };
         }).sort((a, b) => b.score - a.score);
     }, [players]);
 
-    const hasCultureClash = useMemo(() => hasCultureClashCards(players), [players]);
-    const selectedPlayerHasCultureClash = useMemo(() => {
-        const selected = scoredPlayers.find(p => p.id === selectedPlayerId);
-        return selected ? playerHasCultureClashCards(selected) : false;
-    }, [selectedPlayerId, scoredPlayers]);
+    // Simplified Logic: Are any expansion cards actually in use right now?
+    const expansionInUse = useMemo(() => isExpansionInUse(players), [players]);
+
+    // Handle the Toggle logic
+    // Can turn ON anytime. Can only turn OFF if not in use.
+    const isToggleLocked = cultureClashEnabled && expansionInUse;
+
+    const handleToggleExpansion = () => {
+        if (isToggleLocked) return;
+        setCultureClashEnabled(!cultureClashEnabled);
+    };
     
-    // Determine the occupied rolls for the modal context
+    // Modal helpers
     const getModalOccupiedRolls = () => {
         if (!darkspaceModal) return new Set();
         if (darkspaceModal.cardName === CardName.DARKSPACE_HUB) {
@@ -395,6 +389,8 @@ function App() {
             </div>
 
             <div className="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-6 gap-6">
+                
+                {/* Left Sidebar: Leaderboard & Controls */}
                 <div className="lg:col-span-1">
                     <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
                         <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
@@ -416,27 +412,29 @@ function App() {
                         <button onClick={handleUndo} disabled={history.length === 0} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${history.length === 0 && 'opacity-30'}`}>Undo</button>
                         
                         <div className="space-y-2 mt-4">
+                             {/* Delta Toggle */}
                              <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
                                 <span className="text-[10px] font-semibold text-indigo-300 uppercase">Delta</span>
                                 <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
                                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showDelta ? 'left-5' : 'left-1'}`} />
                                 </button>
                             </div>
+
+                            {/* Simplified Culture Clash Toggle */}
                             <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700 group relative">
                                 <span className="text-[10px] font-semibold text-indigo-300 uppercase">Culture Clash</span>
                                 <button 
-                                    onClick={() => {
-                                        if (cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash)) return;
-                                        setCultureclashEnabled(!cultureclashEnabled);
-                                    }}
-                                    disabled={cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash)}
-                                    className={`w-10 h-5 rounded-full transition-colors ${cultureclashEnabled ? 'bg-indigo-500' : 'bg-slate-600'} relative ${cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash) ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
+                                    onClick={handleToggleExpansion}
+                                    disabled={isToggleLocked}
+                                    className={`w-10 h-5 rounded-full transition-colors relative ${
+                                        cultureClashEnabled ? 'bg-indigo-500' : 'bg-slate-600'
+                                    } ${isToggleLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                                 >
-                                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cultureclashEnabled ? 'left-5' : 'left-1'}`} />
+                                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cultureClashEnabled ? 'left-5' : 'left-1'}`} />
                                 </button>
 
-                                {cultureclashEnabled && (hasCultureClash || selectedPlayerHasCultureClash) && (
-                                    <div className="absolute bottom-full right-0 mb-2 bg-slate-900 border border-red-500 rounded px-2 py-1 text-xs text-red-300 whitespace-nowrap z-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                {isToggleLocked && (
+                                    <div className="absolute bottom-full right-0 mb-2 bg-slate-900 border border-red-500 rounded px-2 py-1 text-xs text-red-300 whitespace-nowrap z-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
                                         Remove all culture clash cards to disable.
                                     </div>
                                 )}
@@ -445,6 +443,7 @@ function App() {
                     </div>
                 </div>
 
+                {/* Center: Player Detail View */}
                 <div className="lg:col-span-4">
                     {selectedPlayerId ? (
                         <PlayerDetail 
@@ -462,13 +461,14 @@ function App() {
                             onRemoveCard={removeCard}
                             onToggleCulture={toggleCulture}
                             showDelta={showDelta}
-                            cultureclashEnabled={cultureclashEnabled}
+                            cultureClashEnabled={cultureClashEnabled}
                         />
                     ) : (
                         <div className="bg-slate-800 rounded-lg p-12 text-center border border-indigo-500/30 text-slate-400 text-xl">Select a player to manage cards</div>
                     )}
                 </div>
 
+                {/* Right Sidebar: Roll Payout Calculator */}
                 <div className="lg:col-span-1">
                     <div className="bg-slate-800 rounded-lg p-4 border border-indigo-500/30 h-full">
                         <div className="font-semibold text-indigo-300 mb-3 text-center">Roll Payout:</div>
