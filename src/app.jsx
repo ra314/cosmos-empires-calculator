@@ -67,6 +67,12 @@ const ProdBadge = ({ value }) => (
     </span>
 );
 
+const ExpansionBadge = () => (
+    <span className="bg-amber-500 text-[9px] text-amber-950 font-black px-1 py-0.5 rounded shrink-0" title="Culture Clash Expansion">
+        CC
+    </span>
+);
+
 function DarkspaceModal({ onSelect, onClose, occupied }) {
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
@@ -158,6 +164,7 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                                             ))}
                                         </div>
                                         <span className="font-bold text-sm truncate">{name}</span>
+                                        {group.data.culture_clash && <ExpansionBadge />}
                                         {group.totalProd > 0 && <ProdBadge value={group.totalProd} />}
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -173,7 +180,7 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
 
             {cultureClashEnabled && (
                 <div className="mb-10">
-                    <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Active Culture Cards</h3>
+                    <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Culture Cards</h3>
                     <div className="flex flex-wrap gap-2">
                         {cultureList.map(cc => {
                             const isActive = player.tableau.activeCultureCards.has(cc.name);
@@ -234,6 +241,7 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <div className="font-bold text-sm">{card.name}</div>
+                                                {card.culture_clash && <ExpansionBadge />}
                                                 {isConflicting && <span className="text-lg">🚫</span>}
                                                 {!isConflicting && deltaValue > 0 && <ProdBadge value={deltaValue} />}
                                             </div>
