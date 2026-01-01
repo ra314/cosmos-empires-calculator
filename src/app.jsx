@@ -41,6 +41,16 @@ const calculateCardContribution = (cardName, rolls, allCards) => {
     return prod * instance.qty;
 };
 
+// Checks if any player has culture clash cards
+const hasCultureClashCards = (players) => {
+    return players.some(player => {
+        return Object.keys(player.cards).some(cardName => {
+            const card = CARD_DATA.get(cardName);
+            return card && card.culture_clash;
+        });
+    });
+};
+
 // --- Helper Components ---
 
 const ProdBadge = ({ value }) => (
@@ -74,12 +84,12 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
 
 // --- Updated PlayerDetail with editable name ---
 
-function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, setShowDelta }) {
+function PlayerDetail({ player, onAddCard, onRename, onRemoveCard, showDelta, setShowDelta, cultureclashEnabled }) {
     const typeColors = { BIO: 'bg-emerald-700 border-2 border-emerald-500', MECH: 'bg-sky-700 border-2 border-sky-500', SPIRIT: 'bg-violet-700 border-2 border-violet-500' };
     const typeIcons = { BIO: '🌿', MECH: '⚙️', SPIRIT: '✨' };
     const typeBadgeStyles = { BIO: 'bg-emerald-600 border border-emerald-400', MECH: 'bg-sky-600 border border-sky-400', SPIRIT: 'bg-violet-600 border border-violet-400' };
 
-    const cardList = Array.from(CARD_DATA.values()).filter(card => !card.culture_clash).sort((a, b) => a.name.localeCompare(b.name));
+    const cardList = Array.from(CARD_DATA.values()).filter(card => cultureclashEnabled || !card.culture_clash).sort((a, b) => a.name.localeCompare(b.name));
     const occupiedRolls = getNonConflictingRollValues(sync(player.cards));
 
     return (
@@ -168,6 +178,7 @@ function App() {
     const [selectedRoll, setSelectedRoll] = useState(2);
     const [undoAction, setUndoAction] = useState(null);
     const [showDelta, setShowDelta] = useState(true);
+    const [cultureclashEnabled, setCultureclashEnabled] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -240,6 +251,8 @@ function App() {
             .sort((a, b) => b.score - a.score);
     }, [players]);
 
+    const hasCultureClash = useMemo(() => hasCultureClashCards(players), [players]);
+
     return (
         <div className="min-h-screen p-4">
                     <div className="flex justify-center items-center mb-8 gap-8">
@@ -281,11 +294,28 @@ function App() {
                         </div>
                         <button onClick={addPlayer} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded">Add Player</button>
                         <button onClick={handleUndo} disabled={!undoAction} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${!undoAction && 'opacity-30'}`}>Undo</button>
-                        <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700 mt-3">
-                            <span className="text-[10px] font-semibold text-indigo-300 uppercase">Delta</span>
-                            <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
-                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showDelta ? 'left-5' : 'left-1'}`} />
-                            </button>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
+                                <span className="text-[10px] font-semibold text-indigo-300 uppercase">Delta</span>
+                                <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
+                                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showDelta ? 'left-5' : 'left-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
+                                <span className="text-[10px] font-semibold text-indigo-300 uppercase">Culture Clash</span>
+                                <button 
+                                    onClick={() => {
+                                        // Only allow turning OFF if no culture clash cards are present
+                                        if (cultureclashEnabled && hasCultureClash) return;
+                                        setCultureclashEnabled(!cultureclashEnabled);
+                                    }}
+                                    disabled={cultureclashEnabled && hasCultureClash}
+                                    className={`w-10 h-5 rounded-full transition-colors ${cultureclashEnabled ? 'bg-indigo-500' : 'bg-slate-600'} relative ${cultureclashEnabled && hasCultureClash ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
+                                    title={cultureclashEnabled && hasCultureClash ? 'Cannot disable Culture Clash while Culture Clash cards are in use' : 'Toggle Culture Clash expansion'}
+                                >
+                                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cultureclashEnabled ? 'left-5' : 'left-1'}`} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -303,6 +333,7 @@ function App() {
                             onRemoveCard={removeCard}
                             showDelta={showDelta}
                             setShowDelta={setShowDelta}
+                            cultureclashEnabled={cultureclashEnabled}
                         />
                     ) : (
                         <div className="bg-slate-800 rounded-lg p-12 text-center border border-indigo-500/30 text-slate-400 text-xl">Select a player to manage cards</div>
