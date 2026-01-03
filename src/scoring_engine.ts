@@ -309,4 +309,15 @@ export class PlayerManager {
             activeCultureCards: newSet
         };
     }
+
+    static updateCardChoices(tableau: PlayerTableau, instanceId: string, choiceUpdates: Partial<CardChoice>): PlayerTableau {
+        return {
+            ...tableau,
+            ownedCards: tableau.ownedCards.map(card => 
+                card.instanceId === instanceId 
+                    ? { ...card, choices: { ...card.choices, ...choiceUpdates } }
+                    : card
+            )
+        };
+    }
 }

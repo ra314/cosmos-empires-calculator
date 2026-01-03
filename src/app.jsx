@@ -349,6 +349,22 @@ function App() {
         updatePlayers(newPlayers);
     };
 
+    const updateSelachonidBonus = (playerId, instanceId, delta) => {
+        const playerIndex = players.findIndex(p => p.id === playerId);
+        if (playerIndex === -1) return;
+
+        const player = players[playerIndex];
+        const card = player.tableau.ownedCards.find(c => c.instanceId === instanceId);
+        const currentBonus = card?.choices?.bonusProduction || 0;
+        const newBonus = Math.max(0, currentBonus + delta);
+        
+        const newTableau = PlayerManager.updateCardChoices(player.tableau, instanceId, { bonusProduction: newBonus });
+
+        const newPlayers = [...players];
+        newPlayers[playerIndex] = { ...player, tableau: newTableau };
+        updatePlayers(newPlayers);
+    };
+
     // Derived State
     const scoredPlayers = useMemo(() => {
         return players.map(p => {
@@ -368,6 +384,14 @@ function App() {
         if (isToggleLocked) return;
         setCultureClashEnabled(!cultureClashEnabled);
     };
+
+    // Get Selachonid cards for the selected player
+    const selectedPlayerSelachonids = useMemo(() => {
+        if (!selectedPlayerId) return [];
+        const player = scoredPlayers.find(p => p.id === selectedPlayerId);
+        if (!player) return [];
+        return player.computed.filter(c => c.name === CardName.SELACHONID);
+    }, [selectedPlayerId, scoredPlayers]);
     
     // Modal helpers
     const getModalOccupiedRolls = () => {
@@ -414,6 +438,42 @@ function App() {
                         <button onClick={addPlayer} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded">Add Player</button>
                         <button onClick={handleUndo} disabled={history.length === 0} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${history.length === 0 && 'opacity-30'}`}>Undo</button>
                         
+                        {/* Selachonid Management */}
+                        {selectedPlayerSelachonids.length > 0 && (
+                            <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-emerald-500/30">
+                                <h3 className="text-xs font-semibold text-emerald-400 uppercase mb-2">Selachonid Bonus</h3>
+                                <div className="space-y-2">
+                                    {selectedPlayerSelachonids.map((card, index) => (
+                                        <div key={card.instanceId} className="flex items-center justify-between gap-2 bg-emerald-900/30 rounded p-2">
+                                            <span className="text-sm text-emerald-300">#{index + 1}</span>
+                                            <div className="flex items-center gap-1">
+                                                <button 
+                                                    onClick={() => updateSelachonidBonus(selectedPlayerId, card.instanceId, -2)}
+                                                    disabled={(card.choices?.bonusProduction || 0) === 0}
+                                                    className={`w-7 h-7 rounded font-bold text-sm ${
+                                                        (card.choices?.bonusProduction || 0) === 0 
+                                                            ? 'bg-slate-700 text-slate-500 cursor-not-allowed' 
+                                                            : 'bg-red-600 hover:bg-red-500 text-white'
+                                                    }`}
+                                                >
+                                                    -2
+                                                </button>
+                                                <span className="w-8 text-center font-bold text-emerald-400">
+                                                    +{card.choices?.bonusProduction || 0}
+                                                </span>
+                                                <button 
+                                                    onClick={() => updateSelachonidBonus(selectedPlayerId, card.instanceId, 2)}
+                                                    className="w-7 h-7 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+                                                >
+                                                    +2
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-2 mt-4">
                              {/* Delta Toggle */}
                              <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
