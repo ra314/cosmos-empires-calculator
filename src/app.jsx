@@ -31,10 +31,6 @@ const groupCardsForDisplay = (computedCards) => {
     return groups;
 };
 
-const getScore = (computedCards) => {
-    return computedCards.reduce((acc, card) => acc + card.currentProduction, 0);
-};
-
 const getProductionForRoll = (computedCards, roll) => {
     return computedCards.reduce((acc, card) => {
         const hits = card.effectiveRolls.has(roll);
@@ -211,10 +207,9 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
 
                         let deltaValue = 0;
                         if (showDelta) {
-                            const currentScore = getScore(computedCards);
-                            const hypoTableau = PlayerManager.addCard(player.tableau, card.name, { selectedRoll: card.roll === "CHOICE" ? 2 : undefined });
-                            const hypoComputed = ScoringEngine.calculate(hypoTableau);
-                            deltaValue = getScore(hypoComputed) - currentScore;
+                            const currentScore = ScoringEngine.getScore(computedCards);
+                            const hypoScore = ScoringEngine.calculateHypoMaxScore(player.tableau, card.name);
+                            deltaValue = hypoScore - currentScore;
                         }
 
                         let isConflicting = false;
@@ -358,7 +353,7 @@ function App() {
     const scoredPlayers = useMemo(() => {
         return players.map(p => {
             const computed = ScoringEngine.calculate(p.tableau);
-            return { ...p, computed, score: getScore(computed) };
+            return { ...p, computed, score: ScoringEngine.getScore(computed) };
         }).sort((a, b) => b.score - a.score);
     }, [players]);
 

@@ -40,6 +40,42 @@ export interface ComputedCard extends Card {
  * The Scoring Engine
  */
 export class ScoringEngine {
+
+    static calculateHypoMaxScore(tableau: PlayerTableau, cardName: CardName): number {
+        const baseCard = CARD_DATA.get(cardName);
+        if (!baseCard) {
+            throw new Error(`Card data not found for card name: ${cardName}`);
+        }
+
+        let rolls: DiceRollValue[] = [];
+        if (baseCard.roll === "CHOICE") {
+            let possibleRolls: Set<DiceRollValue> = new Set([2,3,4,5,6,7,8]);
+            if (cardName === CardName.DARKSPACE_HUB) {
+                tableau.ownedCards
+                    .filter(pCard => pCard.cardName === CardName.DARKSPACE_HUB)
+                    .forEach(pCard => {
+                        if (pCard.choices?.selectedRoll !== undefined) {
+                            possibleRolls.delete(pCard.choices.selectedRoll);
+                            if (pCard.choices?.isMobile) {
+                                possibleRolls.delete((pCard.choices.selectedRoll - 1) as DiceRollValue);
+                                possibleRolls.delete((pCard.choices.selectedRoll + 1) as DiceRollValue);
+                            }
+                        }
+                    });
+            }
+            rolls.push(...possibleRolls);
+        } else {
+            rolls.push(baseCard.roll);
+        }
+        let highestScore = Math.max(...rolls
+            .map(roll => PlayerManager.addCard(tableau, cardName, {selectedRoll: roll}))
+            .map(hypoTableau => this.getScore(this.calculate(hypoTableau))));
+        return highestScore;
+    }
+
+    static getScore(cards: ComputedCard[]): number {
+        return (cards).reduce((acc, card) => acc + card.currentProduction, 0);
+    }
     
     /**
      * Main entry point to calculate the state of all cards in a player's empire.
@@ -213,6 +249,7 @@ export class ScoringEngine {
 
             case CardName.ZYGATE_INTERCHANGE:
                 const distinctRolls = new Set(all.flatMap(c => c.effectiveRolls)).size;
+                console.log(distinctRolls);
                 return distinctRolls >= 7 ? 3 : 1;
 
             case CardName.THE_SPIRE:
