@@ -349,17 +349,12 @@ function App() {
         updatePlayers(newPlayers);
     };
 
-    const updateSelachonidBonus = (playerId, instanceId, delta) => {
+const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
         const playerIndex = players.findIndex(p => p.id === playerId);
         if (playerIndex === -1) return;
 
         const player = players[playerIndex];
-        const card = player.tableau.ownedCards.find(c => c.instanceId === instanceId);
-        const currentBonus = card?.choices?.bonusProduction || 0;
-        const newBonus = Math.max(0, currentBonus + delta);
-        
-        const newTableau = PlayerManager.updateCardChoices(player.tableau, instanceId, { bonusProduction: newBonus });
-
+        const newTableau = PlayerManager.changeCardBonus(player.tableau, instanceId, isIncrease);
         const newPlayers = [...players];
         newPlayers[playerIndex] = { ...player, tableau: newTableau };
         updatePlayers(newPlayers);
@@ -448,7 +443,7 @@ function App() {
                                             <span className="text-sm text-emerald-300">#{index + 1}</span>
                                             <div className="flex items-center gap-1">
                                                 <button 
-                                                    onClick={() => updateSelachonidBonus(selectedPlayerId, card.instanceId, -2)}
+                                                    onClick={() => updateSelachonidBonus(selectedPlayerId, card.instanceId, false)}
                                                     disabled={(card.choices?.bonusProduction || 0) === 0}
                                                     className={`w-7 h-7 rounded font-bold text-sm ${
                                                         (card.choices?.bonusProduction || 0) === 0 
@@ -462,7 +457,7 @@ function App() {
                                                     +{card.choices?.bonusProduction || 0}
                                                 </span>
                                                 <button 
-                                                    onClick={() => updateSelachonidBonus(selectedPlayerId, card.instanceId, 2)}
+                                                    onClick={() => updateSelachonidBonus(selectedPlayerId, card.instanceId, true)}
                                                     className="w-7 h-7 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
                                                 >
                                                     +2

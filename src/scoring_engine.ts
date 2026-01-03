@@ -1,10 +1,10 @@
-import { 
-    CardName, 
-    CardType, 
-    Card, 
-    CARD_DATA, 
-    CultureCardName, 
-    CULTURE_CARD_DATA, 
+import {
+    CardName,
+    CardType,
+    Card,
+    CARD_DATA,
+    CultureCardName,
+    CULTURE_CARD_DATA,
     DiceRollValue
 } from './data';
 
@@ -49,7 +49,7 @@ export class ScoringEngine {
 
         let rolls: DiceRollValue[] = [];
         if (baseCard.roll === "CHOICE") {
-            let possibleRolls: Set<DiceRollValue> = new Set([2,3,4,5,6,7,8]);
+            let possibleRolls: Set<DiceRollValue> = new Set([2, 3, 4, 5, 6, 7, 8]);
             if (cardName === CardName.DARKSPACE_HUB) {
                 tableau.ownedCards
                     .filter(pCard => pCard.cardName === CardName.DARKSPACE_HUB)
@@ -68,7 +68,7 @@ export class ScoringEngine {
             rolls.push(baseCard.roll);
         }
         let highestScore = Math.max(...rolls
-            .map(roll => PlayerManager.addCard(tableau, cardName, {selectedRoll: roll}))
+            .map(roll => PlayerManager.addCard(tableau, cardName, { selectedRoll: roll }))
             .map(hypoTableau => this.getScore(this.calculate(hypoTableau))));
         return highestScore;
     }
@@ -76,7 +76,7 @@ export class ScoringEngine {
     static getScore(cards: ComputedCard[]): number {
         return (cards).reduce((acc, card) => acc + card.currentProduction, 0);
     }
-    
+
     /**
      * Main entry point to calculate the state of all cards in a player's empire.
      */
@@ -169,11 +169,11 @@ export class ScoringEngine {
             let bonus = 0;
             if (tableau.activeCultureCards.has(CultureCardName.SLUMBERING)) bonus += 1;
             if (tableau.activeCultureCards.has(CultureCardName.OSTENTATIOUS) && card.cost >= 7) bonus += 1;
-            
+
             // Mystical Logic: Non-spirit sharing roll with a spirit
             if (tableau.activeCultureCards.has(CultureCardName.MYSTICAL) && !card.effectiveTypes.has(CardType.SPIRIT)) {
-                const sharesRollWithSpirit = cards.some(other => 
-                    other.instanceId !== card.instanceId && 
+                const sharesRollWithSpirit = cards.some(other =>
+                    other.instanceId !== card.instanceId &&
                     other.effectiveTypes.has(CardType.SPIRIT) &&
                     other.effectiveRolls.intersection(card.effectiveRolls).size > 0
                 );
@@ -182,8 +182,8 @@ export class ScoringEngine {
 
             // AUTONOMOUS
             if (tableau.activeCultureCards.has(CultureCardName.AUTONOMOUS)) {
-                const sharesRoll = cards.some(other => 
-                    other.instanceId !== card.instanceId && 
+                const sharesRoll = cards.some(other =>
+                    other.instanceId !== card.instanceId &&
                     other.effectiveRolls.intersection(card.effectiveRolls).size > 0
                 );
                 if (!sharesRoll) bonus += 1;
@@ -199,13 +199,13 @@ export class ScoringEngine {
             let changed = false;
             cards.forEach(card => {
                 if (card.name === CardName.PLANAR_LAYLINE) {
-                    const otherCardsWithDifferentDiceRollValue = cards.filter(c => 
+                    const otherCardsWithDifferentDiceRollValue = cards.filter(c =>
                         c.effectiveRolls.intersection(card.effectiveRolls).size === 0
                     );
-                    const maxOtherProd = otherCardsWithDifferentDiceRollValue.length > 0 
-                        ? Math.max(...otherCardsWithDifferentDiceRollValue.map(c => c.currentProduction)) 
+                    const maxOtherProd = otherCardsWithDifferentDiceRollValue.length > 0
+                        ? Math.max(...otherCardsWithDifferentDiceRollValue.map(c => c.currentProduction))
                         : 0;
-                    
+
                     if (card.currentProduction !== maxOtherProd) {
                         card.currentProduction = maxOtherProd;
                         changed = true;
@@ -310,12 +310,23 @@ export class PlayerManager {
         };
     }
 
-    static updateCardChoices(tableau: PlayerTableau, instanceId: string, choiceUpdates: Partial<CardChoice>): PlayerTableau {
+    static changeCardBonus(tableau: PlayerTableau, instanceId: string, isIncrease: boolean): PlayerTableau {
+        const cardExists = tableau.ownedCards.some(card => card.instanceId === instanceId);
+        if (!cardExists) {
+            throw new Error(`Card with instanceId ${instanceId} not found`);
+        }
+
         return {
             ...tableau,
-            ownedCards: tableau.ownedCards.map(card => 
-                card.instanceId === instanceId 
-                    ? { ...card, choices: { ...card.choices, ...choiceUpdates } }
+            ownedCards: tableau.ownedCards.map(card =>
+                card.instanceId === instanceId
+                    ? {
+                        ...card,
+                        choices: {
+                            ...card.choices,
+                            bonusProduction: (card.choices?.bonusProduction || 0) + (isIncrease ? 2 : -2)
+                        }
+                    }
                     : card
             )
         };
