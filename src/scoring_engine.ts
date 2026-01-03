@@ -232,7 +232,7 @@ export class ScoringEngine {
                 return pairs * 2;
 
             case CardName.TRANSIT_HUB:
-                return new Set(all.flatMap(c => c.effectiveRolls)).size;
+                return new Set(all.flatMap(c => Array.from(c.effectiveRolls))).size;
 
             case CardName.YGGDRASIL:
                 return all.filter(c => c.effectiveTypes.has(CardType.BIO)).length;
@@ -248,7 +248,7 @@ export class ScoringEngine {
                 return (card.choices?.bonusProduction || 0);
 
             case CardName.ZYGATE_INTERCHANGE:
-                const distinctRolls = new Set(all.flatMap(c => c.effectiveRolls)).size;
+                const distinctRolls = new Set(all.flatMap(c => Array.from(c.effectiveRolls))).size;
                 console.log(distinctRolls);
                 return distinctRolls >= 7 ? 3 : 1;
 
@@ -257,7 +257,7 @@ export class ScoringEngine {
                 return bioCount >= 2 ? 4 : 2;
 
             case CardName.THOUGHT_CURATOR:
-                const bioRolls = new Set(all.filter(c => c.effectiveTypes.has(CardType.BIO)).flatMap(c => c.effectiveRolls));
+                const bioRolls = new Set(all.filter(c => c.effectiveTypes.has(CardType.BIO)).flatMap(c => Array.from(c.effectiveRolls)));
                 return bioRolls.size;
 
             case CardName.PLANAR_LAYLINE:
