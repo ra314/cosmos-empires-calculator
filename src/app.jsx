@@ -207,7 +207,7 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
 
                         let deltaValue = 0;
                         if (showDelta) {
-                            const currentScore = ScoringEngine.getScore(computedCards);
+                            const currentScore = ScoringEngine.getProdScore(computedCards);
                             const hypoScore = ScoringEngine.calculateHypoMaxScore(player.tableau, card.name);
                             deltaValue = hypoScore - currentScore;
                         }
@@ -364,7 +364,7 @@ const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
     const scoredPlayers = useMemo(() => {
         return players.map(p => {
             const computed = ScoringEngine.calculate(p.tableau);
-            return { ...p, computed, score: ScoringEngine.getScore(computed) };
+            return { ...p, computed, score: ScoringEngine.getProdScore(computed) };
         }).sort((a, b) => b.score - a.score);
     }, [players]);
 

@@ -41,6 +41,7 @@ export interface ComputedCard extends Card {
  */
 export class ScoringEngine {
 
+    // Calculate the hypothetical max score for a card that you could buy.
     static calculateHypoMaxScore(tableau: PlayerTableau, cardName: CardName): number {
         const baseCard = CARD_DATA.get(cardName);
         if (!baseCard) {
@@ -69,12 +70,47 @@ export class ScoringEngine {
         }
         let highestScore = Math.max(...rolls
             .map(roll => PlayerManager.addCard(tableau, cardName, { selectedRoll: roll }))
-            .map(hypoTableau => this.getScore(this.calculate(hypoTableau))));
+            .map(hypoTableau => this.getProdScore(this.calculate(hypoTableau))));
         return highestScore;
     }
 
-    static getScore(cards: ComputedCard[]): number {
+    static getProdScore(cards: ComputedCard[]): number {
         return (cards).reduce((acc, card) => acc + card.currentProduction, 0);
+    }
+
+    static getCreditsOnRoll(tableau: PlayerTableau, roll: DiceRollValue): number {
+        let credits = 0;
+        let computed = this.calculate(tableau);
+        
+        // Add the computed production roll to credits.
+        credits = computed
+            .filter(card => card.effectiveRolls.has(roll))
+            .map(card => card.currentProduction)
+            .reduce((acc, prod) => acc + prod, 0);
+        
+        // ETHEREAL: Your spirits produce an extra credit.
+        if (tableau.activeCultureCards.has(CultureCardName.ETHEREAL)) {
+            credits += computed
+                .filter(card => card.effectiveRolls.has(roll) && card.effectiveTypes.has(CardType.SPIRIT))
+                .map(() => 1)
+                .reduce((acc, val) => acc + val, 0);
+        }
+
+        // DILIGENT: Each production roll, if you get credits, get an extra credit.
+        if (tableau.activeCultureCards.has(CultureCardName.DILIGENT) && credits > 0) {
+            credits += 1;
+        }
+
+        // PLANAR_SHEPARD: If a Bio produced for you this production roll, get 1 credit.
+        let hasBioProduced = computed.some(card => card.effectiveRolls.has(roll) && card.effectiveTypes.has(CardType.BIO) && card.currentProduction > 0);
+        if (hasBioProduced) {
+            credits += computed
+                .filter(card => card.name === CardName.PLANAR_SHEPARD)
+                .map(() => 1)
+                .reduce((acc, val) => acc + val, 0);
+        }
+
+        return credits;
     }
 
     /**
