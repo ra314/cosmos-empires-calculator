@@ -53,13 +53,19 @@ const isExpansionInUse = (players) => {
 // --- Helper Components ---
 
 const ProdBadge = ({ value }) => (
-    <span className={`bg-emerald-500 text-sm text-emerald-950 font-black px-1.5 py-0.5 rounded shrink-0 flex items-center justify-center min-w-[24px]`}>
-        +{value}
+    <span className={`bg-emerald-500 text-sm text-emerald-950 font-black w-7 h-7 rounded-full shrink-0 flex items-center justify-center shadow-lg shadow-emerald-500/20`}>
+        {value}
     </span>
 );
 
+const RollBadge = ({ value }) => (
+    <div className="w-8 h-7 flex items-end justify-center pb-0.5 bg-indigo-500 text-indigo-50 font-bold text-xs shrink-0 [clip-path:polygon(50%_0%,_0%_100%,_100%_100%)] shadow-sm filter drop-shadow-sm" title="Roll Value">
+        {value}
+    </div>
+);
+
 const ExpansionBadge = () => (
-    <span className="bg-amber-500 text-[9px] text-amber-950 font-black px-1 py-0.5 rounded shrink-0" title="Culture Clash Expansion">
+    <span className="bg-amber-500 text-[9px] text-amber-950 font-black px-1.5 py-0.5 rounded shrink-0" title="Culture Clash Expansion">
         CC
     </span>
 );
@@ -112,13 +118,13 @@ function PlayerDetail({
     const getCardStyle = (typesSet) => {
         const types = Array.from(typesSet).sort();
         const baseColor = typeConfig[types[0]]?.color || 'slate';
-        // Base card borders
-        if (types.length === 1) return `border-${baseColor}-500 bg-${baseColor}-900/40`;
+        // Reverted to solid backgrounds with colored borders
+        if (types.length === 1) return `border-${baseColor}-500 bg-slate-900`;
         if (types.length === 2) {
             const c1 = typeConfig[types[0]]?.color || 'slate';
-            return `border-${c1}-500 bg-gradient-to-br from-${c1}-900/40 to-${typeConfig[types[1]]?.color || 'slate'}-900/40`;
+            return `border-${c1}-500 bg-slate-900`;
         }
-        return 'border-slate-500 bg-slate-800';
+        return 'border-slate-500 bg-slate-900';
     };
 
     const getBadgeStyle = (type) => {
@@ -177,7 +183,8 @@ function PlayerDetail({
                                     {group.computed.map(card => {
                                         const isMob = card.choices?.isMobile;
                                         const isSelachonid = card.name === 'Selachonid';
-                                        
+                                        const rollDisplay = Array.from(card.effectiveRolls).sort().join('/');
+
                                         return (
                                             <div 
                                                 key={card.instanceId} 
@@ -187,11 +194,14 @@ function PlayerDetail({
                                                         ? 'cursor-pointer hover:bg-amber-500/20 hover:text-amber-200' 
                                                         : 'hover:bg-white/5'
                                                     }
-                                                    ${isMob ? 'bg-indigo-900/40' : ''}
+                                                    ${isMob ? 'bg-indigo-900/20' : ''}
                                                 `}
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    <ProdBadge value={card.currentProduction} />
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex items-end gap-1">
+                                                        <ProdBadge value={card.currentProduction} />
+                                                        <RollBadge value={rollDisplay} />
+                                                    </div>
                                                     
                                                     {isMob && (
                                                         <span className="bg-amber-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded" title="Mobile Unit (+/- 1 Roll)">
@@ -222,9 +232,10 @@ function PlayerDetail({
                                                 {!mobileSelectionMode && (
                                                     <button 
                                                         onClick={(e) => { e.stopPropagation(); onRemoveCard(player.id, card.instanceId); }}
-                                                        className="text-slate-500 hover:text-red-400 w-5 h-5 flex items-center justify-center rounded transition-colors"
+                                                        className="bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white w-6 h-6 flex items-center justify-center rounded transition-colors"
+                                                        title="Remove Card"
                                                     >
-                                                        −
+                                                        ✕
                                                     </button>
                                                 )}
                                             </div>
