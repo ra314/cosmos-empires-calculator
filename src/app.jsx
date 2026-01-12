@@ -31,12 +31,7 @@ const groupCardsForDisplay = (computedCards) => {
     return groups;
 };
 
-const getProductionForRoll = (computedCards, roll) => {
-    return computedCards.reduce((acc, card) => {
-        const hits = card.effectiveRolls.has(roll);
-        return acc + (hits ? card.currentProduction : 0);
-    }, 0);
-};
+
 
 /**
  * Simplified Check:
@@ -539,7 +534,7 @@ const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
                             {scoredPlayers.map(p => (
                                 <div key={p.id} className={`flex justify-between p-2 rounded text-lg ${selectedPlayerId === p.id ? 'bg-indigo-900/40' : 'bg-slate-900/30'}`}>
                                     <span className="truncate mr-2">{p.name}</span>
-                                    <span className="font-bold text-indigo-400">{getProductionForRoll(p.computed, selectedRoll)}</span>
+                                    <span className="font-bold text-indigo-400">{ScoringEngine.getCreditsOnRoll(p.tableau, selectedRoll)}</span>
                                 </div>
                             ))}
                         </div>
