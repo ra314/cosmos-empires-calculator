@@ -164,13 +164,15 @@ export class ScoringEngine {
             }
         });
 
-        // 2. Global Additives Pass (Slumbering, Ostentatious, etc.)
+        // 2. Global Additives Pass
         cards.forEach(card => {
             let bonus = 0;
+            // SLUMBERING: Reveal this culture card only at the start of your first turn. When you reveal this card, pay 8 credits. Your cards have +1 production.
             if (tableau.activeCultureCards.has(CultureCardName.SLUMBERING)) bonus += 1;
+            // OSTENTATIOUS: Your cards with base cost of 7 credits or more have +1 production.
             if (tableau.activeCultureCards.has(CultureCardName.OSTENTATIOUS) && card.cost >= 7) bonus += 1;
 
-            // Mystical Logic: Non-spirit sharing roll with a spirit
+            // MYSTRICAL: You must pay 3 credits to reveal this card. Your non-spirit cards that have another spirit with the same roll value have +1 production.
             if (tableau.activeCultureCards.has(CultureCardName.MYSTICAL) && !card.effectiveTypes.has(CardType.SPIRIT)) {
                 const sharesRollWithSpirit = cards.some(other =>
                     other.instanceId !== card.instanceId &&
@@ -180,13 +182,22 @@ export class ScoringEngine {
                 if (sharesRollWithSpirit) bonus += 1;
             }
 
-            // AUTONOMOUS
+            // AUTONOMOUS: You must pay 4 credits to reveal this card. Your cards with a unique dice roll value have +1 production.
             if (tableau.activeCultureCards.has(CultureCardName.AUTONOMOUS)) {
                 const sharesRoll = cards.some(other =>
                     other.instanceId !== card.instanceId &&
                     other.effectiveRolls.intersection(card.effectiveRolls).size > 0
                 );
                 if (!sharesRoll) bonus += 1;
+            }
+
+            // ORTHODOX: Your Bio cards with 3 or more production have +1 production.
+            if (tableau.activeCultureCards.has(CultureCardName.ORTHODOX)) {
+                const isBio = card.effectiveTypes.has(CardType.BIO);
+                const isHighProduction = (card.currentProduction + bonus) >= 3;
+                if (isBio && isHighProduction) {
+                    bonus += 1;
+                }
             }
 
             card.currentProduction += bonus;
