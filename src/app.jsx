@@ -303,6 +303,14 @@ function App() {
         if (!selectedPlayerId) setSelectedPlayerId(newPlayer.id);
     };
 
+    const deletePlayer = (id) => {
+        if (window.confirm('Are you sure you want to delete this player?')) {
+            const newPlayers = players.filter(p => p.id !== id);
+            updatePlayers(newPlayers);
+            if (selectedPlayerId === id) setSelectedPlayerId(null);
+        }
+    };
+
     const renamePlayer = (id, newName) => {
         setPlayers(curr => curr.map(p => p.id === id ? { ...p, name: newName } : p));
     };
@@ -413,12 +421,15 @@ const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
                         <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
                         <div className="space-y-2">
                             {scoredPlayers.map((p) => (
-                                <div key={p.id} className={`flex items-center gap-2 p-3 rounded ${selectedPlayerId === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}>
+                                <div 
+                                    key={p.id} 
+                                    onClick={() => setSelectedPlayerId(p.id)}
+                                    className={`flex items-center gap-2 p-3 rounded cursor-pointer ${selectedPlayerId === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}
+                                >
                                     <input
                                         type="text"
                                         value={p.name}
                                         onChange={(e) => renamePlayer(p.id, e.target.value)}
-                                        onClick={() => setSelectedPlayerId(p.id)}
                                         className="bg-transparent font-semibold text-lg truncate min-w-0 flex-1 border-b border-transparent hover:border-indigo-300 focus:border-indigo-400 focus:outline-none text-white"
                                     />
                                     <span className="text-lg font-bold text-indigo-400 shrink-0">{p.score}</span>
@@ -426,6 +437,7 @@ const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
                             ))}
                         </div>
                         <button onClick={addPlayer} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded">Add Player</button>
+                        <button onClick={() => deletePlayer(selectedPlayerId)} disabled={!selectedPlayerId} className={`w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded ${!selectedPlayerId ? 'opacity-30 cursor-not-allowed' : ''}`}>Delete Player</button>
                         <button onClick={handleUndo} disabled={history.length === 0} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${history.length === 0 && 'opacity-30'}`}>Undo</button>
                         
                         {/* Selachonid Management */}
