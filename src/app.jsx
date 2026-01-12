@@ -89,7 +89,19 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
 
 // --- PlayerDetail ---
 
-function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard, onToggleCulture, showDelta, cultureClashEnabled }) {
+function PlayerDetail({ 
+    player, 
+    computedCards, 
+    onAddCard, 
+    onRename, 
+    onRemoveCard, 
+    onToggleCulture, 
+    showDelta, 
+    cultureClashEnabled,
+    mobileSelectionMode,
+    onMobileAssign,
+    onUpdateSelachonid
+}) {
     
     const typeConfig = { 
         BIO: { color: 'emerald', icon: '🌿' }, 
@@ -100,22 +112,13 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
     const getCardStyle = (typesSet) => {
         const types = Array.from(typesSet).sort();
         const baseColor = typeConfig[types[0]]?.color || 'slate';
-
-        if (types.length === 1) return `bg-${baseColor}-700 border-2 border-${baseColor}-500`;
-        
+        // Base card borders
+        if (types.length === 1) return `border-${baseColor}-500 bg-${baseColor}-900/40`;
         if (types.length === 2) {
             const c1 = typeConfig[types[0]]?.color || 'slate';
-            const c2 = typeConfig[types[1]]?.color || 'slate';
-            return `bg-gradient-to-r from-${c1}-700 to-${c2}-700 border-2 border-${c1}-500`;
+            return `border-${c1}-500 bg-gradient-to-br from-${c1}-900/40 to-${typeConfig[types[1]]?.color || 'slate'}-900/40`;
         }
-
-        if (types.length === 3) {
-            const c1 = typeConfig[types[0]]?.color || 'slate';
-            const c2 = typeConfig[types[1]]?.color || 'slate';
-            const c3 = typeConfig[types[2]]?.color || 'slate';
-            return `bg-gradient-to-r from-${c1}-700 via-${c2}-700 to-${c3}-700 border-2 border-${c1}-500`;
-        }
-        return 'bg-slate-700 border-2 border-slate-500';
+        return 'border-slate-500 bg-slate-800';
     };
 
     const getBadgeStyle = (type) => {
@@ -141,27 +144,92 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
         <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
 
             <div className="mb-10">
-                <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Your Cards</h3>
+                <div className="flex justify-between items-center border-b border-indigo-500/20 pb-2 mb-3">
+                    <h3 className="text-xl font-semibold text-indigo-300">Your Cards</h3>
+                    {mobileSelectionMode && (
+                        <div className="bg-amber-500 text-amber-950 px-3 py-1 rounded text-xs font-bold animate-pulse">
+                            SELECT CARD FOR MOBILE UNIT
+                        </div>
+                    )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Array.from(groupedCards.entries()).map(([name, group]) => {
                         const effectiveTypes = ScoringEngine.calculateEffectiveTypes(group.data, player.tableau);
                         return (
-                            <div key={name} className={`${getCardStyle(effectiveTypes)} p-2 px-3 rounded flex flex-col justify-center`}>
-                                <div className="flex items-center justify-between gap-2">
+                            <div key={name} className={`${getCardStyle(effectiveTypes)} border-2 rounded-lg flex flex-col overflow-hidden`}>
+                                {/* Card Header */}
+                                <div className="bg-black/30 p-2 px-3 flex items-center justify-between gap-2 border-b border-white/10">
                                     <div className="flex items-center gap-1.5 truncate">
                                         <div className="flex gap-0.5">
                                             {Array.from(effectiveTypes).sort().map(t => (
                                                 <span key={t} className="text-xs" title={t}>{typeConfig[t]?.icon}</span>
                                             ))}
                                         </div>
-                                        <span className="font-bold text-sm truncate">{name}</span>
+                                        <span className="font-bold text-sm truncate text-white/90">{name}</span>
                                         {group.data.culture_clash && <ExpansionBadge />}
-                                        {group.totalProd > 0 && <ProdBadge value={group.totalProd} />}
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                        <span className="font-bold text-lg shrink-0">×{group.qty}</span>
-                                        <button onClick={() => onRemoveCard(player.id, group.computed[group.computed.length-1].instanceId)} className="bg-red-500 hover:bg-red-600 text-white w-5 h-5 rounded flex items-center justify-center text-xs font-bold shadow-sm shrink-0">−</button>
-                                    </div>
+                                    <span className="text-xs font-mono text-white/50">{group.data.roll}</span>
+                                </div>
+
+                                {/* Card Instances Stack */}
+                                <div className="flex flex-col divide-y divide-white/5">
+                                    {group.computed.map(card => {
+                                        const isMob = card.choices?.isMobile;
+                                        const isSelachonid = card.name === 'Selachonid';
+                                        
+                                        return (
+                                            <div 
+                                                key={card.instanceId} 
+                                                onClick={() => mobileSelectionMode && onMobileAssign(player.id, card.instanceId)}
+                                                className={`p-2 px-3 flex items-center justify-between gap-2 transition-colors
+                                                    ${mobileSelectionMode 
+                                                        ? 'cursor-pointer hover:bg-amber-500/20 hover:text-amber-200' 
+                                                        : 'hover:bg-white/5'
+                                                    }
+                                                    ${isMob ? 'bg-indigo-900/40' : ''}
+                                                `}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <ProdBadge value={card.currentProduction} />
+                                                    
+                                                    {isMob && (
+                                                        <span className="bg-amber-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded" title="Mobile Unit (+/- 1 Roll)">
+                                                            MOB
+                                                        </span>
+                                                    )}
+
+                                                    {/* Selachonid In-Line Controls */}
+                                                    {isSelachonid && !mobileSelectionMode && (
+                                                        <div className="flex gap-0.5 ml-1">
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); onUpdateSelachonid(player.id, card.instanceId, false); }}
+                                                                disabled={(card.choices?.bonusProduction || 0) <= 0}
+                                                                className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 disabled:opacity-30 rounded text-[10px]"
+                                                            >
+                                                                -2
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); onUpdateSelachonid(player.id, card.instanceId, true); }}
+                                                                className="w-5 h-5 flex items-center justify-center bg-emerald-700 hover:bg-emerald-600 rounded text-[10px]"
+                                                            >
+                                                                +2
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {!mobileSelectionMode && (
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); onRemoveCard(player.id, card.instanceId); }}
+                                                        className="text-slate-500 hover:text-red-400 w-5 h-5 flex items-center justify-center rounded transition-colors"
+                                                    >
+                                                        −
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         );
@@ -179,11 +247,12 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                                 <button
                                     key={cc.name}
                                     onClick={() => onToggleCulture(player.id, cc.name)}
+                                    disabled={mobileSelectionMode && cc.name !== 'Mobile'} // Disable other toggles while selecting
                                     className={`px-3 py-1.5 rounded text-xs font-bold transition-colors border ${
                                         isActive 
                                         ? 'bg-amber-600 border-amber-400 text-white' 
                                         : 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-slate-600'
-                                    }`}
+                                    } ${mobileSelectionMode && cc.name !== 'Mobile' ? 'opacity-30 cursor-not-allowed' : ''}`}
                                 >
                                     {cc.name}
                                 </button>
@@ -193,7 +262,7 @@ function PlayerDetail({ player, computedCards, onAddCard, onRename, onRemoveCard
                 </div>
             )}
 
-            <div>
+            <div className={mobileSelectionMode ? "opacity-30 pointer-events-none filter grayscale" : ""}>
                 <h3 className="text-xl font-semibold mb-3 text-indigo-300 border-b border-indigo-500/20 pb-2">Add Cards</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {cardList.map(card => {
@@ -265,6 +334,9 @@ function App() {
     
     // Toggle State
     const [cultureClashEnabled, setCultureClashEnabled] = useState(false);
+    
+    // Mobile Card Selection State
+    const [mobileSelectionMode, setMobileSelectionMode] = useState(false);
 
     // Helpers
     const updatePlayers = (newPlayers) => {
@@ -343,16 +415,43 @@ function App() {
     const toggleCulture = (playerId, cultureCardName) => {
         const playerIndex = players.findIndex(p => p.id === playerId);
         if (playerIndex === -1) return;
-
         const player = players[playerIndex];
+
+        // Special handling for Mobile: If turning ON, enter selection mode
+        if (cultureCardName === 'Mobile' && !player.tableau.activeCultureCards.has('Mobile')) {
+            if (player.tableau.ownedCards.length === 0) {
+                alert("You cannot add Mobile if you don't own any cards.");
+                return;
+            }
+            setMobileSelectionMode(true);
+            return; 
+        }
+
+        // Otherwise standard toggle (including turning Mobile OFF)
         const newTableau = PlayerManager.toggleCulture(player.tableau, cultureCardName);
+        
+        // If turning off Mobile (or anything else), ensure selection mode is cleared
+        setMobileSelectionMode(false);
 
         const newPlayers = [...players];
         newPlayers[playerIndex] = { ...player, tableau: newTableau };
         updatePlayers(newPlayers);
     };
 
-const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
+    const handleMobileAssignment = (playerId, instanceId) => {
+        const playerIndex = players.findIndex(p => p.id === playerId);
+        if (playerIndex === -1) return;
+        const player = players[playerIndex];
+
+        const newTableau = PlayerManager.setCardMobile(player.tableau, instanceId);
+
+        const newPlayers = [...players];
+        newPlayers[playerIndex] = { ...player, tableau: newTableau };
+        updatePlayers(newPlayers);
+        setMobileSelectionMode(false);
+    };
+
+    const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
         const playerIndex = players.findIndex(p => p.id === playerId);
         if (playerIndex === -1) return;
 
@@ -440,42 +539,6 @@ const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
                         <button onClick={() => deletePlayer(selectedPlayerId)} disabled={!selectedPlayerId} className={`w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded ${!selectedPlayerId ? 'opacity-30 cursor-not-allowed' : ''}`}>Delete Player</button>
                         <button onClick={handleUndo} disabled={history.length === 0} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${history.length === 0 && 'opacity-30'}`}>Undo</button>
                         
-                        {/* Selachonid Management */}
-                        {selectedPlayerSelachonids.length > 0 && (
-                            <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-emerald-500/30">
-                                <h3 className="text-xs font-semibold text-emerald-400 uppercase mb-2">Selachonid Bonus</h3>
-                                <div className="space-y-2">
-                                    {selectedPlayerSelachonids.map((card, index) => (
-                                        <div key={card.instanceId} className="flex items-center justify-between gap-2 bg-emerald-900/30 rounded p-2">
-                                            <span className="text-sm text-emerald-300">#{index + 1}</span>
-                                            <div className="flex items-center gap-1">
-                                                <button 
-                                                    onClick={() => updateSelachonidBonus(selectedPlayerId, card.instanceId, false)}
-                                                    disabled={(card.choices?.bonusProduction || 0) === 0}
-                                                    className={`w-7 h-7 rounded font-bold text-sm ${
-                                                        (card.choices?.bonusProduction || 0) === 0 
-                                                            ? 'bg-slate-700 text-slate-500 cursor-not-allowed' 
-                                                            : 'bg-red-600 hover:bg-red-500 text-white'
-                                                    }`}
-                                                >
-                                                    -2
-                                                </button>
-                                                <span className="w-8 text-center font-bold text-emerald-400">
-                                                    +{card.choices?.bonusProduction || 0}
-                                                </span>
-                                                <button 
-                                                    onClick={() => updateSelachonidBonus(selectedPlayerId, card.instanceId, true)}
-                                                    className="w-7 h-7 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
-                                                >
-                                                    +2
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         <div className="space-y-2 mt-4">
                              {/* Delta Toggle */}
                              <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
@@ -527,6 +590,9 @@ const updateSelachonidBonus = (playerId, instanceId, isIncrease) => {
                             onToggleCulture={toggleCulture}
                             showDelta={showDelta}
                             cultureClashEnabled={cultureClashEnabled}
+                            mobileSelectionMode={mobileSelectionMode}
+                            onMobileAssign={handleMobileAssignment}
+                            onUpdateSelachonid={updateSelachonidBonus}
                         />
                     ) : (
                         <div className="bg-slate-800 rounded-lg p-12 text-center border border-indigo-500/30 text-slate-400 text-xl">Select a player to manage cards</div>

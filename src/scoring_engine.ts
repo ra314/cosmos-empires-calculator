@@ -346,14 +346,39 @@ export class PlayerManager {
 
     static toggleCulture(tableau: PlayerTableau, name: CultureCardName): PlayerTableau {
         const newSet = new Set(tableau.activeCultureCards);
+        let newOwned = tableau.ownedCards;
         if (newSet.has(name)) {
             newSet.delete(name);
+            // If turning off Mobile, clear the Mobile flag from all cards
+            if (name === 'Mobile' as CultureCardName) {
+                newOwned = newOwned.map(c => ({
+                    ...c,
+                    choices: { ...c.choices, isMobile: false }
+                }));
+            }
         } else {
             newSet.add(name);
         }
         return {
             ...tableau,
-            activeCultureCards: newSet
+            activeCultureCards: newSet,
+            ownedCards: newOwned
+        };
+    }
+
+    static setCardMobile(tableau: PlayerTableau, instanceId: string): PlayerTableau {
+        // 1. Set isMobile=true for the target, false for everyone else
+        // 2. Ensure 'Mobile' culture card is active
+        const newOwned = tableau.ownedCards.map(c => ({
+            ...c,
+            choices: { ...c.choices, isMobile: c.instanceId === instanceId }
+        }));
+        const newCulture = new Set(tableau.activeCultureCards);
+        newCulture.add('Mobile' as CultureCardName);
+        return {
+            ...tableau,
+            ownedCards: newOwned,
+            activeCultureCards: newCulture
         };
     }
 
