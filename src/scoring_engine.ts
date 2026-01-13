@@ -239,28 +239,25 @@ export class ScoringEngine {
             card.currentProduction += bonus;
         });
 
-        // 3. Recursive Pass (Planar Layline)
-        // We run this multiple times until values stop changing (converging)
-        // Max 5 passes to prevent infinite loops from invalid game states
-        for (let i = 0; i < 5; i++) {
-            let changed = false;
-            cards.forEach(card => {
-                if (card.name === CardName.PLANAR_LAYLINE) {
-                    const otherCardsWithDifferentDiceRollValue = cards.filter(c =>
-                        c.effectiveRolls.intersection(card.effectiveRolls).size === 0
-                    );
-                    const maxOtherProd = otherCardsWithDifferentDiceRollValue.length > 0
-                        ? Math.max(...otherCardsWithDifferentDiceRollValue.map(c => c.currentProduction))
-                        : 0;
+        // 3. Planar Layline "Copy" Pass (Non-Iterative)
+        // We filter out other Laylines to prevent recursion/infinite loops.
+        const nonLaylineCards = cards.filter(c => c.name !== CardName.PLANAR_LAYLINE);
 
-                    if (card.currentProduction !== maxOtherProd) {
-                        card.currentProduction = maxOtherProd;
-                        changed = true;
-                    }
-                }
-            });
-            if (!changed) break;
-        }
+        cards.forEach(card => {
+            if (card.name === CardName.PLANAR_LAYLINE) {
+                // Find cards that have NO overlapping dice rolls with this Layline
+                const validCandidates = nonLaylineCards.filter(other =>
+                    other.effectiveRolls.intersection(card.effectiveRolls).size === 0
+                );
+
+                const maxOtherProd = validCandidates.length > 0
+                    ? Math.max(...validCandidates.map(c => c.currentProduction))
+                    : 0;
+
+                // The Layline's production is the copied value + any global bonuses it already earned
+                card.currentProduction += maxOtherProd;
+            }
+        });
 
         return cards;
     }
