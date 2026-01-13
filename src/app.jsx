@@ -12,7 +12,7 @@ import { ScoringEngine, PlayerManager } from './scoring_engine';
 // Groups computed cards by name for the "Stack" view in the UI
 const groupCardsForDisplay = (computedCards) => {
     const groups = new Map();
-    
+
     computedCards.forEach(card => {
         if (!groups.has(card.name)) {
             groups.set(card.name, {
@@ -76,11 +76,11 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
             <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full border-2 border-indigo-500">
                 <h3 className="text-2xl font-bold text-indigo-400 mb-4 text-center">Assign Roll Value</h3>
                 <div className="grid grid-cols-4 gap-2 mb-4">
-                    {[2,3,4,5,6,7,8].map(roll => (
-                        <button 
-                            key={roll} 
-                            onClick={() => !occupied.has(roll) && onSelect(roll)} 
-                            disabled={occupied.has(roll)} 
+                    {[2, 3, 4, 5, 6, 7, 8].map(roll => (
+                        <button
+                            key={roll}
+                            onClick={() => !occupied.has(roll) && onSelect(roll)}
+                            disabled={occupied.has(roll)}
                             className={`py-3 px-4 rounded font-bold text-lg ${!occupied.has(roll) ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
                         >
                             {roll}
@@ -95,24 +95,24 @@ function DarkspaceModal({ onSelect, onClose, occupied }) {
 
 // --- PlayerDetail ---
 
-function PlayerDetail({ 
-    player, 
-    computedCards, 
-    onAddCard, 
-    onRename, 
-    onRemoveCard, 
-    onToggleCulture, 
-    showDelta, 
+function PlayerDetail({
+    player,
+    computedCards,
+    onAddCard,
+    onRename,
+    onRemoveCard,
+    onToggleCulture,
+    showDelta,
     cultureClashEnabled,
     mobileSelectionMode,
     onMobileAssign,
     onUpdateSelachonid
 }) {
-    
-    const typeConfig = { 
-        BIO: { color: 'emerald', icon: '🌿' }, 
-        MECH: { color: 'sky', icon: '⚙️' }, 
-        SPIRIT: { color: 'violet', icon: '✨' } 
+
+    const typeConfig = {
+        BIO: { color: 'emerald', icon: '🌿' },
+        MECH: { color: 'sky', icon: '⚙️' },
+        SPIRIT: { color: 'violet', icon: '✨' }
     };
 
     const getCardStyle = (typesSet) => {
@@ -136,7 +136,7 @@ function PlayerDetail({
     const cardList = Array.from(CARD_DATA.values())
         .filter(card => cultureClashEnabled || !card.culture_clash)
         .sort((a, b) => a.name.localeCompare(b.name));
-    
+
     const cultureList = Array.from(CULTURE_CARD_DATA.values())
         .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -162,6 +162,7 @@ function PlayerDetail({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Array.from(groupedCards.entries()).map(([name, group]) => {
                         const effectiveTypes = ScoringEngine.calculateEffectiveTypes(group.data, player.tableau);
+                        const isMech = effectiveTypes.has(CardType.MECH);
                         return (
                             <div key={name} className={`${getCardStyle(effectiveTypes)} border-2 rounded-lg flex flex-col overflow-hidden`}>
                                 {/* Card Header */}
@@ -184,15 +185,16 @@ function PlayerDetail({
                                         const isMob = card.choices?.isMobile;
                                         const isSelachonid = card.name === 'Selachonid';
                                         const rollDisplay = group.data.roll === 'CHOICE' ? card.choices?.selectedRoll : group.data.roll;
+                                        const isTargetable = mobileSelectionMode && isMech;
 
                                         return (
-                                            <div 
-                                                key={card.instanceId} 
-                                                onClick={() => mobileSelectionMode && onMobileAssign(player.id, card.instanceId)}
+                                            <div
+                                                key={card.instanceId}
+                                                onClick={() => isTargetable && onMobileAssign(player.id, card.instanceId)}
                                                 className={`p-2 px-3 flex items-center justify-between gap-2 transition-colors
-                                                    ${mobileSelectionMode 
-                                                        ? 'cursor-pointer hover:bg-amber-500/20 hover:text-amber-200' 
-                                                        : 'hover:bg-white/5'
+                                                    ${isTargetable
+                                                        ? 'cursor-pointer hover:bg-amber-500/20 hover:text-amber-200'
+                                                        : mobileSelectionMode ? 'cursor-not-allowed opacity-40' : 'hover:bg-white/5'
                                                     }
                                                     ${isMob ? 'bg-indigo-900/20' : ''}
                                                 `}
@@ -202,7 +204,7 @@ function PlayerDetail({
                                                         <ProdBadge value={card.currentProduction} />
                                                         <RollBadge value={rollDisplay} />
                                                     </div>
-                                                    
+
                                                     {isMob && (
                                                         <span className="bg-amber-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded" title="Mobile Unit (+/- 1 Roll)">
                                                             MOB
@@ -212,14 +214,14 @@ function PlayerDetail({
                                                     {/* Selachonid In-Line Controls */}
                                                     {isSelachonid && !mobileSelectionMode && (
                                                         <div className="flex gap-0.5 ml-1">
-                                                            <button 
+                                                            <button
                                                                 onClick={(e) => { e.stopPropagation(); onUpdateSelachonid(player.id, card.instanceId, false); }}
                                                                 disabled={(card.choices?.bonusProduction || 0) <= 0}
                                                                 className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 disabled:opacity-30 rounded text-[10px]"
                                                             >
                                                                 -2
                                                             </button>
-                                                            <button 
+                                                            <button
                                                                 onClick={(e) => { e.stopPropagation(); onUpdateSelachonid(player.id, card.instanceId, true); }}
                                                                 className="w-5 h-5 flex items-center justify-center bg-emerald-700 hover:bg-emerald-600 rounded text-[10px]"
                                                             >
@@ -230,7 +232,7 @@ function PlayerDetail({
                                                 </div>
 
                                                 {!mobileSelectionMode && (
-                                                    <button 
+                                                    <button
                                                         onClick={(e) => { e.stopPropagation(); onRemoveCard(player.id, card.instanceId); }}
                                                         className="bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white w-6 h-6 flex items-center justify-center rounded transition-colors"
                                                         title="Remove Card"
@@ -259,11 +261,10 @@ function PlayerDetail({
                                     key={cc.name}
                                     onClick={() => onToggleCulture(player.id, cc.name)}
                                     disabled={mobileSelectionMode && cc.name !== 'Mobile'} // Disable other toggles while selecting
-                                    className={`px-3 py-1.5 rounded text-xs font-bold transition-colors border ${
-                                        isActive 
-                                        ? 'bg-amber-600 border-amber-400 text-white' 
-                                        : 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-slate-600'
-                                    } ${mobileSelectionMode && cc.name !== 'Mobile' ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                    className={`px-3 py-1.5 rounded text-xs font-bold transition-colors border ${isActive
+                                            ? 'bg-amber-600 border-amber-400 text-white'
+                                            : 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-slate-600'
+                                        } ${mobileSelectionMode && cc.name !== 'Mobile' ? 'opacity-30 cursor-not-allowed' : ''}`}
                                 >
                                     {cc.name}
                                 </button>
@@ -293,15 +294,14 @@ function PlayerDetail({
                         }
 
                         return (
-                            <button 
-                                key={card.name} 
-                                onClick={() => !isConflicting && onAddCard(card.name)} 
+                            <button
+                                key={card.name}
+                                onClick={() => !isConflicting && onAddCard(card.name)}
                                 disabled={isConflicting}
-                                className={`${
-                                    isConflicting 
-                                        ? 'bg-slate-600 opacity-50 cursor-not-allowed' 
+                                className={`${isConflicting
+                                        ? 'bg-slate-600 opacity-50 cursor-not-allowed'
                                         : getCardStyle(effectiveTypes) + ' hover:brightness-110'
-                                } p-3 rounded text-left transition`}
+                                    } p-3 rounded text-left transition`}
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-start gap-2">
@@ -342,10 +342,10 @@ function App() {
     const [selectedRoll, setSelectedRoll] = useState(2);
     const [history, setHistory] = useState([]);
     const [showDelta, setShowDelta] = useState(true);
-    
+
     // Toggle State
     const [cultureClashEnabled, setCultureClashEnabled] = useState(false);
-    
+
     // Mobile Card Selection State
     const [mobileSelectionMode, setMobileSelectionMode] = useState(false);
 
@@ -377,10 +377,10 @@ function App() {
     // Action Handlers
     const addPlayer = () => {
         if (players.length >= 8) return;
-        const newPlayer = { 
-            id: Date.now(), 
-            name: `Player ${players.length + 1}`, 
-            tableau: PlayerManager.createTableau() 
+        const newPlayer = {
+            id: Date.now(),
+            name: `Player ${players.length + 1}`,
+            tableau: PlayerManager.createTableau()
         };
         updatePlayers([...players, newPlayer]);
         if (!selectedPlayerId) setSelectedPlayerId(newPlayer.id);
@@ -401,10 +401,10 @@ function App() {
     const addCard = (playerId, cardName, choices = {}) => {
         const playerIndex = players.findIndex(p => p.id === playerId);
         if (playerIndex === -1) return;
-        
+
         const player = players[playerIndex];
         const newTableau = PlayerManager.addCard(player.tableau, cardName, choices);
-        
+
         const newPlayers = [...players];
         newPlayers[playerIndex] = { ...player, tableau: newTableau };
         updatePlayers(newPlayers);
@@ -430,17 +430,24 @@ function App() {
 
         // Special handling for Mobile: If turning ON, enter selection mode
         if (cultureCardName === 'Mobile' && !player.tableau.activeCultureCards.has('Mobile')) {
-            if (player.tableau.ownedCards.length === 0) {
-                alert("You cannot add Mobile if you don't own any cards.");
+            // Check if player has any cards that are effectively MECH
+            const hasValidMechTarget = player.tableau.ownedCards.some(pCard => {
+                const cardData = CARD_DATA.get(pCard.cardName);
+                const effectiveTypes = ScoringEngine.calculateEffectiveTypes(cardData, player.tableau);
+                return effectiveTypes.has(CardType.MECH);
+            });
+
+            if (!hasValidMechTarget) {
+                alert("You cannot activate Mobile because you do not own any Mech units.");
                 return;
             }
             setMobileSelectionMode(true);
-            return; 
+            return;
         }
 
         // Otherwise standard toggle (including turning Mobile OFF)
         const newTableau = PlayerManager.toggleCulture(player.tableau, cultureCardName);
-        
+
         // If turning off Mobile (or anything else), ensure selection mode is cleared
         setMobileSelectionMode(false);
 
@@ -500,7 +507,7 @@ function App() {
         if (!player) return [];
         return player.computed.filter(c => c.name === CardName.SELACHONID);
     }, [selectedPlayerId, scoredPlayers]);
-    
+
     // Modal helpers
     const getModalOccupiedRolls = () => {
         if (!darkspaceModal) return new Set();
@@ -524,15 +531,15 @@ function App() {
             </div>
 
             <div className="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-6 gap-6">
-                
+
                 {/* Left Sidebar: Leaderboard & Controls */}
                 <div className="lg:col-span-1">
                     <div className="bg-slate-800 rounded-lg p-6 border border-indigo-500/30">
                         <h2 className="text-2xl font-bold text-indigo-400 mb-4">Leaderboard</h2>
                         <div className="space-y-2">
                             {scoredPlayers.map((p) => (
-                                <div 
-                                    key={p.id} 
+                                <div
+                                    key={p.id}
                                     onClick={() => setSelectedPlayerId(p.id)}
                                     className={`flex items-center gap-2 p-3 rounded cursor-pointer ${selectedPlayerId === p.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-indigo-600/50'}`}
                                 >
@@ -549,10 +556,10 @@ function App() {
                         <button onClick={addPlayer} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded">Add Player</button>
                         <button onClick={() => deletePlayer(selectedPlayerId)} disabled={!selectedPlayerId} className={`w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded ${!selectedPlayerId ? 'opacity-30 cursor-not-allowed' : ''}`}>Delete Player</button>
                         <button onClick={handleUndo} disabled={history.length === 0} className={`w-full mt-2 bg-yellow-600 text-white font-bold py-2 rounded ${history.length === 0 && 'opacity-30'}`}>Undo</button>
-                        
+
                         <div className="space-y-2 mt-4">
-                             {/* Delta Toggle */}
-                             <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
+                            {/* Delta Toggle */}
+                            <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700">
                                 <span className="text-[10px] font-semibold text-indigo-300 uppercase">Delta</span>
                                 <button onClick={() => setShowDelta(!showDelta)} className={`w-10 h-5 rounded-full transition-colors ${showDelta ? 'bg-indigo-500' : 'bg-slate-600'} relative`}>
                                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${showDelta ? 'left-5' : 'left-1'}`} />
@@ -562,12 +569,11 @@ function App() {
                             {/* Simplified Culture Clash Toggle */}
                             <div className="flex items-center justify-between gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700 group relative">
                                 <span className="text-[10px] font-semibold text-indigo-300 uppercase">Culture Clash</span>
-                                <button 
+                                <button
                                     onClick={handleToggleExpansion}
                                     disabled={isToggleLocked}
-                                    className={`w-10 h-5 rounded-full transition-colors relative ${
-                                        cultureClashEnabled ? 'bg-indigo-500' : 'bg-slate-600'
-                                    } ${isToggleLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                                    className={`w-10 h-5 rounded-full transition-colors relative ${cultureClashEnabled ? 'bg-indigo-500' : 'bg-slate-600'
+                                        } ${isToggleLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                                 >
                                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${cultureClashEnabled ? 'left-5' : 'left-1'}`} />
                                 </button>
@@ -585,8 +591,8 @@ function App() {
                 {/* Center: Player Detail View */}
                 <div className="lg:col-span-4">
                     {selectedPlayerId ? (
-                        <PlayerDetail 
-                            player={scoredPlayers.find(p => p.id === selectedPlayerId)} 
+                        <PlayerDetail
+                            player={scoredPlayers.find(p => p.id === selectedPlayerId)}
                             computedCards={scoredPlayers.find(p => p.id === selectedPlayerId).computed}
                             onRename={renamePlayer}
                             onAddCard={(name) => {
@@ -615,7 +621,7 @@ function App() {
                     <div className="bg-slate-800 rounded-lg p-4 border border-indigo-500/30 h-full">
                         <div className="font-semibold text-indigo-300 mb-3 text-center">Roll Payout:</div>
                         <div className="flex gap-2 flex-wrap justify-center mb-4">
-                            {[2,3,4,5,6,7,8].map(r => (
+                            {[2, 3, 4, 5, 6, 7, 8].map(r => (
                                 <button key={r} onClick={() => setSelectedRoll(r)} className={`w-10 h-10 rounded font-bold ${selectedRoll === r ? "bg-indigo-600 border-2 border-indigo-400" : "bg-slate-700"}`}>{r}</button>
                             ))}
                         </div>
@@ -632,7 +638,7 @@ function App() {
             </div>
 
             {darkspaceModal && (
-                <DarkspaceModal 
+                <DarkspaceModal
                     onSelect={(roll) => addCard(darkspaceModal.playerId, darkspaceModal.cardName, { selectedRoll: roll })}
                     onClose={() => setDarkspaceModal(null)}
                     occupied={getModalOccupiedRolls()}

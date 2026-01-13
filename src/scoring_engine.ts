@@ -367,6 +367,12 @@ export class PlayerManager {
     }
 
     static setCardMobile(tableau: PlayerTableau, instanceId: string): PlayerTableau {
+        const targetCard = tableau.ownedCards.find(c => c.instanceId === instanceId);
+        if (!targetCard) return tableau;
+        const baseCard = CARD_DATA.get(targetCard.cardName);
+        if (!baseCard) return tableau;
+        const effectiveTypes = ScoringEngine.calculateEffectiveTypes(baseCard, tableau);
+        if (!effectiveTypes.has(CardType.MECH)) return tableau;
         // 1. Set isMobile=true for the target, false for everyone else
         // 2. Ensure 'Mobile' culture card is active
         const newOwned = tableau.ownedCards.map(c => ({

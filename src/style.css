@@ -14,6 +14,11 @@
     50% { opacity: .5; }
 }
 
+/* Smooth transition for selection mode dimming */
+.transition-colors {
+    transition: all 0.2s ease-in-out;
+}
+
 .animate-pulse {
     animation: pulse-emerald 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
