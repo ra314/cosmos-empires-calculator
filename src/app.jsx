@@ -183,7 +183,7 @@ function PlayerDetail({
                                     {group.computed.map(card => {
                                         const isMob = card.choices?.isMobile;
                                         const isSelachonid = card.name === 'Selachonid';
-                                        const rollDisplay = Array.from(card.effectiveRolls).sort().join('/');
+                                        const rollDisplay = group.data.roll === 'CHOICE' ? card.choices?.selectedRoll : group.data.roll;
 
                                         return (
                                             <div 
